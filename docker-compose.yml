@@ -1,0 +1,20 @@
+version: '3'
+services:
+  node1:
+    container_name: node1
+    build: .
+    ports:
+      - "50000:18443" 
+      - "50001:18444"
+    entrypoint: /bin/bash compile_and_run.sh
+    volumes:
+      - .:/build/parity-bitcoin
+  node2:
+    container_name: node2
+    build: .
+    ports: 
+      - "50002:18443" 
+      - "50003:18444"
+    volumes:
+      - .:/build/parity-bitcoin
+    entrypoint: /bin/bash compile_and_run.sh
