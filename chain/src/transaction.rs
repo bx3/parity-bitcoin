@@ -1,6 +1,6 @@
 //! Bitcoin trainsaction.
 //! https://en.bitcoin.it/wiki/Protocol_documentation#tx
-
+extern crate rand;
 use std::io;
 use heapsize::HeapSizeOf;
 use hex::FromHex;
@@ -10,6 +10,7 @@ use crypto::dhash256;
 use hash::H256;
 use constants::{SEQUENCE_FINAL, LOCKTIME_THRESHOLD};
 use ser::{Error, Serializable, Deserializable, Stream, Reader};
+use rand::Rng;
 
 /// Must be zero.
 const WITNESS_MARKER: u8 = 0;
@@ -32,6 +33,15 @@ impl OutPoint {
 
 	pub fn is_null(&self) -> bool {
 		self.hash.is_zero() && self.index == u32::max_value()
+	}
+
+	pub fn rand_hash() -> Self {
+		let rand_ = rand::thread_rng().gen_range(1, 10000000);
+		let rand_hash : H256 = rand_.into();
+		OutPoint {
+			hash: rand_hash,
+			index: u32::max_value(),
+		}
 	}
 }
 

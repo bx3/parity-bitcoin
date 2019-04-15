@@ -5,6 +5,7 @@ extern crate bitcrypto as crypto;
 extern crate serialization as ser;
 #[macro_use]
 extern crate serialization_derive;
+extern crate rand;
 
 pub mod constants;
 

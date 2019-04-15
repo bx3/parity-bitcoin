@@ -226,6 +226,7 @@ impl Protocol for SyncProtocol {
 		}
 		else if command == &types::Block::command() {
 			let message: types::Block = try!(deserialize_payload(payload, version));
+			println!("protocol sync on block");
 			self.inbound_connection.on_block(message);
 		}
 		else if command == &types::MemPool::command() {

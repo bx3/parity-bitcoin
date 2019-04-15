@@ -154,12 +154,14 @@ impl Context {
 	/// Connect to socket using given context and handle.
 	fn connect_future<T>(context: Arc<Context>, socket: net::SocketAddr, handle: &Handle, config: &NetConfig) -> BoxedEmptyFuture where T: SessionFactory {
 		trace!("Trying to connect to: {}", socket);
+		println!("Trying to connect to: {}", socket);
 		let connection = connect(&socket, handle, config);
 		Box::new(connection.then(move |result| {
 			match result {
 				Ok(DeadlineStatus::Meet(Ok(connection))) => {
 					// successfull hanshake
 					trace!("Connected to {}", connection.address);
+					println!("Connected to {}", connection.address);
 					context.node_table.write().insert(connection.address, connection.services);
 					let channel = context.connections.store::<T>(context.clone(), connection, Direction::Outbound);
 
@@ -170,6 +172,7 @@ impl Context {
 				Ok(DeadlineStatus::Meet(Err(_))) => {
 					// protocol error
 					trace!("Handshake with {} failed", socket);
+					println!("Handshake with {} failed", socket);
 					// TODO: close socket
 					context.node_table.write().note_failure(&socket);
 					context.connection_counter.note_close_outbound_connection();
@@ -178,6 +181,7 @@ impl Context {
 				Ok(DeadlineStatus::Timeout) => {
 					// connection time out
 					trace!("Handshake with {} timed out", socket);
+					println!("Handshake with {} timed out", socket);
 					// TODO: close socket
 					context.node_table.write().note_failure(&socket);
 					context.connection_counter.note_close_outbound_connection();
@@ -186,6 +190,7 @@ impl Context {
 				Err(_) => {
 					// network error
 					trace!("Unable to connect to {}", socket);
+					println!("network Unable to connect to {}", socket);
 					context.node_table.write().note_failure(&socket);
 					context.connection_counter.note_close_outbound_connection();
 					Box::new(finished(Ok(())))
@@ -285,6 +290,7 @@ impl Context {
 				Ok(Ok((command, payload))) => {
 					// successful read
 					trace!("Received {} message from {}", command, channel.peer_info().address);
+					println!("p2p receive, on_message, from {:?}", channel.peer_info().address);
 					// handle message and read the next one
 					match channel.session().on_message(command, payload) {
 						Ok(_) => {
@@ -448,6 +454,26 @@ impl P2P {
 		for peer in &self.config.peers {
 			self.connect::<NormalSessionFactory>(*peer);
 		}
+
+		let net_ip1 = std::net::IpAddr::V4(std::net::Ipv4Addr::new(172, 24, 0, 2));
+		let net_ip2 = std::net::IpAddr::V4(std::net::Ipv4Addr::new(172, 24, 0, 3));
+		let peer1 = SocketAddr::new(net_ip1, 18444);
+		let peer2 = SocketAddr::new(net_ip2, 18444);
+
+		let local_addr = self.config.connection.local_address.clone();
+		println!("local {:?}", local_addr);
+
+		self.connect::<NormalSessionFactory>(peer2);
+		self.connect::<NormalSessionFactory>(peer1);
+
+
+		//if local_addr == peer1 {
+		//	self.connect::<NormalSessionFactory>(peer2);
+		//	println!("connect {:?}", peer2);
+		//} else {
+		//	self.connect::<NormalSessionFactory>(peer1);
+		//	println!("connect {:?}", peer1);
+		//}
 
 		let resolver = try!(DnsResolver::system_config(&self.event_loop_handle));
 		for seed in &self.config.seeds {

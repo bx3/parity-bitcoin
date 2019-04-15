@@ -8,6 +8,7 @@ use crypto::dhash256;
 use ser::Stream;
 use verification::is_valid_proof_of_work_hash;
 use block_assembler::BlockTemplate;
+use rand::Rng;
 
 /// Instead of serializing `BlockHeader` from scratch over and over again,
 /// let's keep it serialized in memory and replace needed bytes
@@ -70,7 +71,66 @@ pub trait CoinbaseTransactionBuilder {
 	fn finish(self) -> Transaction;
 }
 
+pub struct Sh_CoinbaseTransactionBuilder {
+	transaction: Transaction,
+}
+
+impl CoinbaseTransactionBuilder for Sh_CoinbaseTransactionBuilder {
+	fn set_extranonce(&mut self, extranonce: &[u8]) {
+		self.transaction.inputs[0].script_sig = extranonce.to_vec().into();
+	}
+
+	fn hash(&self) -> H256 {
+		self.transaction.hash()
+	}
+
+	fn finish(self) -> Transaction {
+		self.transaction
+	}
+}
+
+use script::Builder;
+use chain::{TransactionInput, TransactionOutput};
+use keys::AddressHash;
+use std::fmt::{self, Formatter, Display};
+
+impl Sh_CoinbaseTransactionBuilder {
+	pub fn new(hash: &AddressHash, value: u64) -> Self {
+
+
+
+		let script_pubkey = Builder::build_p2pkh(hash).into();
+
+		let mut v = vec![];
+
+		for i in 0..20 {
+			let n = rand::thread_rng().gen_range(0, 10);
+			v.push(n);
+		}
+
+		let script_sig = Bytes::from(v);
+
+
+		let transaction = Transaction {
+			version: 0,
+			inputs: vec![TransactionInput::coinbase(script_sig)],
+			outputs: vec![TransactionOutput {
+				value: value,
+				script_pubkey: script_pubkey,
+			}],
+			lock_time: 0,
+		};
+
+		println!("transaction hash {:?}", transaction.hash());
+
+		Sh_CoinbaseTransactionBuilder {
+			transaction: transaction,
+		}
+	}
+}
+
 /// Cpu miner solution.
+#[derive(Debug)]
 pub struct Solution {
 	/// Block header nonce.
 	pub nonce: u32,
@@ -81,6 +141,13 @@ pub struct Solution {
 	/// Coinbase transaction (extranonce is already set).
 	pub coinbase_transaction: Transaction,
 }
+
+//impl Display for Solution {
+//	fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+//        write!(f, "nonce {}\n extranonce {}\n time {}",
+//               self.nonce, self.extranonce, self.time)
+//    }
+//}
 
 /// Simple bitcoin cpu miner.
 ///
@@ -101,7 +168,7 @@ pub fn find_solution<T>(block: &BlockTemplate, mut coinbase_transaction_builder:
 	while extranonce < max_extranonce {
 		extranonce.to_little_endian(&mut extranonce_bytes);
 		// update coinbase transaction with new extranonce
-		coinbase_transaction_builder.set_extranonce(&extranonce_bytes);
+		//coinbase_transaction_builder.set_extranonce(&extranonce_bytes);
 
 		// recalculate merkle root hash
 		let coinbase_hash = coinbase_transaction_builder.hash();

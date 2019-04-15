@@ -144,6 +144,14 @@ impl H256 {
 	}
 }
 
+impl H160 {
+	pub fn reversed(&self) -> Self {
+		let mut result = self.clone();
+		result.0.reverse();
+		result
+	}
+}
+
 #[cfg(test)]
 mod tests {
 	use super::H256;

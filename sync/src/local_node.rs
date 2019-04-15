@@ -48,6 +48,7 @@ struct TransactionAcceptSinkData {
 	waiter: Condvar,
 }
 
+
 impl<T, U, V> LocalNode<T, U, V> where T: TaskExecutor, U: Server, V: Client {
 	/// Create new synchronization node
 	#[cfg_attr(feature="cargo-clippy", allow(too_many_arguments))]
@@ -63,6 +64,12 @@ impl<T, U, V> LocalNode<T, U, V> where T: TaskExecutor, U: Server, V: Client {
 			client: client,
 			server: server,
 		}
+	}
+
+	pub fn unsolicited_block(&self, peer_index: PeerIndex, indexed_block: IndexedBlock) {
+		println!("local send unsolicited_block");
+		let task_of_block = SynchronizationTask::Block(peer_index, indexed_block);
+		self.executor.execute(task_of_block);
 	}
 
 	/// When new peer connects to the node

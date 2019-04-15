@@ -4,16 +4,35 @@ use jsonrpc_core::Error;
 use sync;
 use miner;
 
+use v1::types::H256;
+use v1::types::H160;
+use miner::Sh_CoinbaseTransactionBuilder;
+use primitives::bigint::{U256, Uint};
+
+use chain::Block;
+use chain::BlockHeader;
+
+use chain::IndexedBlock;
+use std::{thread, time};
+
+
+//use chain::IndexedBlockHeader;
+
+//use primitives::hash::H256 as p_H256;
+
+
 pub struct MinerClient<T: MinerClientCoreApi> {
 	core: T,
 }
 
 pub trait MinerClientCoreApi: Send + Sync + 'static {
 	fn get_block_template(&self) -> miner::BlockTemplate;
+	fn insert_block(&self, indexed_block : IndexedBlock);
+	fn execute_broadcast_block(&self, indexed_block : IndexedBlock);
 }
 
 pub struct MinerClientCore {
-	local_sync_node: sync::LocalNodeRef,
+	pub local_sync_node: sync::LocalNodeRef,
 }
 
 impl MinerClientCore {
@@ -24,9 +43,19 @@ impl MinerClientCore {
 	}
 }
 
+
+
 impl MinerClientCoreApi for MinerClientCore {
 	fn get_block_template(&self) -> miner::BlockTemplate {
 		self.local_sync_node.get_block_template()
+	}
+
+	fn insert_block(&self, indexed_block : IndexedBlock) {
+		self.local_sync_node.on_block(0, indexed_block);
+	}
+
+	fn execute_broadcast_block(&self, indexed_block : IndexedBlock) {
+		self.local_sync_node.unsolicited_block(0, indexed_block);
 	}
 }
 
@@ -38,9 +67,72 @@ impl<T> MinerClient<T> where T: MinerClientCoreApi {
 	}
 }
 
+
+
 impl<T> Miner for MinerClient<T> where T: MinerClientCoreApi {
 	fn get_block_template(&self, _request: BlockTemplateRequest) -> Result<BlockTemplate, Error> {
+		println!("RPC get_block_template");
 		Ok(self.core.get_block_template().into())
+	}
+
+
+	fn generate_blocks(&self, addrhash: H160, num_blocks: u32) -> Result<H256, Error>
+	{
+		println!("RPC start generate_blocks");
+
+
+		let mut hash : primitives::hash::H160 = addrhash.clone().into();
+
+
+
+		let dummy = H256::default();
+
+
+		for _i in 0..num_blocks {
+			let peer_index = 0;
+
+			let coinbase_builder = Sh_CoinbaseTransactionBuilder::new(&hash, 10);
+			let block_template = self.core.get_block_template(); //.into()
+
+			//let mut retarget: primitives::compact::Compact = 0xfffffffffffffffffffffffff.into();
+			//block_template.bits = retarget;
+			println!("block_template.bits {:?}", block_template.bits);
+
+			let solution = miner::find_solution(&block_template, coinbase_builder, U256::max_value());
+
+			let solution = solution.unwrap();
+
+			println!("solution.coinbase_transaction.hash() {}", solution.coinbase_transaction.hash());
+
+			let block_header = BlockHeader {
+				version: block_template.version,
+				previous_header_hash: block_template.previous_header_hash.clone(),
+				merkle_root_hash: solution.coinbase_transaction.hash().clone(),  //use coinbase transaction for
+				time: solution.time.clone(),
+				bits: block_template.bits.clone(),
+				nonce: solution.nonce.clone()
+			};
+
+			let block = Block::new(block_header, vec![solution.coinbase_transaction]);
+			let indexed_block = IndexedBlock::from(block);
+			println!("new Block\n");
+			println!("{:?}", indexed_block);
+
+			self.core.insert_block(indexed_block.clone());
+
+			//broadcast to do
+			self.core.execute_broadcast_block(indexed_block);
+
+
+
+
+			let ten_millis = time::Duration::from_millis(100);
+			thread::sleep(ten_millis);
+		}
+
+
+
+		Ok(dummy)
 	}
 }
 
@@ -72,6 +164,14 @@ pub mod tests {
 				size_limit: 77,
 				sigop_limit: 88,
 			}
+		}
+
+		fn insert_block(&self, indexed_block : IndexedBlock) {
+			unimplemented!();
+		}
+
+		fn execute_broadcast_block(&self, indexed_block : IndexedBlock) {
+			unimplemented!();
 		}
 	}
 

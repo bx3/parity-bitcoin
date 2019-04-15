@@ -11,6 +11,7 @@ extern crate network;
 extern crate primitives;
 extern crate serialization as ser;
 extern crate verification;
+extern crate rand;
 
 mod block_assembler;
 mod cpu_miner;
@@ -22,6 +23,8 @@ pub use cpu_miner::find_solution;
 pub use memory_pool::{MemoryPool, HashedOutPoint, Information as MemoryPoolInformation,
 	OrderingStrategy as MemoryPoolOrderingStrategy, DoubleSpendCheckResult, NonFinalDoubleSpendSet};
 pub use fee::{FeeCalculator, transaction_fee, transaction_fee_rate};
+
+pub use cpu_miner::Sh_CoinbaseTransactionBuilder;
 
 #[cfg(feature = "test-helpers")]
 pub use fee::NonZeroFeeCalculator;

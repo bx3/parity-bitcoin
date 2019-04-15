@@ -85,13 +85,14 @@ pub fn start(cfg: config::Config) -> Result<(), String> {
 	let mut el = p2p::event_loop();
 
 	init_db(&cfg)?;
+	println!("after init db");
 
 	let nodes_path = node_table_path(&cfg);
 
 	let p2p_cfg = p2p::Config {
 		threads: cfg.p2p_threads,
-		inbound_connections: cfg.inbound_connections,
-		outbound_connections: cfg.outbound_connections,
+		inbound_connections: 2, //cfg.inbound_connections,
+		outbound_connections: 2, //cfg.outbound_connections,
 		connection: p2p::NetConfig {
 			protocol_version: PROTOCOL_VERSION,
 			protocol_minimum: PROTOCOL_MINIMUM,
@@ -128,6 +129,9 @@ pub fn start(cfg: config::Config) -> Result<(), String> {
 	let _rpc_server = try!(rpc::new_http(cfg.rpc_config, rpc_deps));
 
 	try!(p2p.run().map_err(|_| "Failed to start p2p module"));
+
+	println!("p2p run");
+
 	el.run(p2p::forever()).unwrap();
 	Ok(())
 }

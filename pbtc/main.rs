@@ -53,6 +53,8 @@ fn run() -> Result<(), String> {
 	let matches = clap::App::from_yaml(yaml).get_matches();
 	let cfg = try!(config::parse(&matches));
 
+	println!("start pbtc");
+
 	if !cfg.quiet {
 		if cfg!(windows) {
 			logs::init(LOG_INFO, logs::DateLogFormatter);

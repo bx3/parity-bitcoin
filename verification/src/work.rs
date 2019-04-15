@@ -58,8 +58,14 @@ pub fn retarget_timespan(retarget_timestamp: u32, last_timestamp: u32) -> u32 {
 
 /// Returns work required for given header
 pub fn work_required(parent_hash: H256, time: u32, height: u32, store: &BlockHeaderProvider, consensus: &ConsensusParams) -> Compact {
-	let max_bits = consensus.network.max_bits().into();
+	let max_bits = consensus.network.max_bits().into();	
+
+	if consensus.network == Network::Regtest {
+		return work_required_regtest(parent_hash, time, height, store, Network::Regtest)
+	}
+
 	if height == 0 {
+		println!("height is 0 return max bits");
 		return max_bits;
 	}
 
@@ -82,7 +88,14 @@ pub fn work_required(parent_hash: H256, time: u32, height: u32, store: &BlockHea
 		return work_required_testnet(parent_hash, time, height, store, Network::Testnet)
 	}
 
+
+
 	parent_header.bits
+}
+
+pub fn work_required_regtest(parent_hash: H256, time: u32, height: u32, store: &BlockHeaderProvider, network: Network) -> Compact {
+	let work = network.max_bits() / 16.into();
+	work.into()
 }
 
 pub fn work_required_testnet(parent_hash: H256, time: u32, height: u32, store: &BlockHeaderProvider, network: Network) -> Compact {
