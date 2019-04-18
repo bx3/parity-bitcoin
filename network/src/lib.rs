@@ -8,8 +8,10 @@ mod consensus;
 mod deployments;
 mod network;
 
-pub use primitives::{hash, compact};
+pub use primitives::{compact, hash};
 
-pub use consensus::{ConsensusParams, ConsensusFork, BitcoinCashConsensusParams, TransactionOrdering};
+pub use consensus::{
+    BitcoinCashConsensusParams, ConsensusFork, ConsensusParams, TransactionOrdering,
+};
 pub use deployments::Deployment;
 pub use network::{Magic, Network};

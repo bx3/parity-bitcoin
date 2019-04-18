@@ -7,40 +7,52 @@ use TransactionOutputProvider;
 
 #[derive(Clone, Copy)]
 pub struct DuplexTransactionOutputProvider<'a> {
-	first: &'a TransactionOutputProvider,
-	second: &'a TransactionOutputProvider,
+    first: &'a TransactionOutputProvider,
+    second: &'a TransactionOutputProvider,
 }
 
 impl<'a> DuplexTransactionOutputProvider<'a> {
-	pub fn new(first: &'a TransactionOutputProvider, second: &'a TransactionOutputProvider) -> Self {
-		DuplexTransactionOutputProvider {
-			first: first,
-			second: second,
-		}
-	}
+    pub fn new(
+        first: &'a TransactionOutputProvider,
+        second: &'a TransactionOutputProvider,
+    ) -> Self {
+        DuplexTransactionOutputProvider {
+            first: first,
+            second: second,
+        }
+    }
 }
 
 impl<'a> TransactionOutputProvider for DuplexTransactionOutputProvider<'a> {
-	fn transaction_output(&self, prevout: &OutPoint, transaction_index: usize) -> Option<TransactionOutput> {
-		self.first.transaction_output(prevout, transaction_index)
-			.or_else(|| self.second.transaction_output(prevout, transaction_index))
-	}
+    fn transaction_output(
+        &self,
+        prevout: &OutPoint,
+        transaction_index: usize,
+    ) -> Option<TransactionOutput> {
+        self.first
+            .transaction_output(prevout, transaction_index)
+            .or_else(|| self.second.transaction_output(prevout, transaction_index))
+    }
 
-	fn is_spent(&self, prevout: &OutPoint) -> bool {
-		self.first.is_spent(prevout) || self.second.is_spent(prevout)
-	}
+    fn is_spent(&self, prevout: &OutPoint) -> bool {
+        self.first.is_spent(prevout) || self.second.is_spent(prevout)
+    }
 }
 
 pub struct NoopStore;
 
 impl TransactionOutputProvider for NoopStore {
-	fn transaction_output(&self, _prevout: &OutPoint, _transaction_index: usize) -> Option<TransactionOutput> {
-		None
-	}
+    fn transaction_output(
+        &self,
+        _prevout: &OutPoint,
+        _transaction_index: usize,
+    ) -> Option<TransactionOutput> {
+        None
+    }
 
-	fn is_spent(&self, _prevout: &OutPoint) -> bool {
-		false
-	}
+    fn is_spent(&self, _prevout: &OutPoint) -> bool {
+        false
+    }
 }
 
 /// Converts actual transaction index into transaction index to use in
@@ -53,8 +65,8 @@ impl TransactionOutputProvider for NoopStore {
 /// descendant, like this:
 /// [ ... TX2 ... TX1 ... ]
 pub fn transaction_index_for_output_check(ordering: TransactionOrdering, tx_idx: usize) -> usize {
-	match ordering {
-		TransactionOrdering::Topological => tx_idx,
-		TransactionOrdering::Canonical => ::std::usize::MAX,
-	}
+    match ordering {
+        TransactionOrdering::Topological => tx_idx,
+        TransactionOrdering::Canonical => ::std::usize::MAX,
+    }
 }

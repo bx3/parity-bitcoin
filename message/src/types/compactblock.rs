@@ -1,32 +1,35 @@
-use std::io;
-use ser::{Stream, Reader};
 use common::BlockHeaderAndIDs;
-use {Payload, MessageResult};
+use ser::{Reader, Stream};
+use std::io;
+use {MessageResult, Payload};
 
 #[derive(Debug, PartialEq)]
 pub struct CompactBlock {
-	pub header: BlockHeaderAndIDs,
+    pub header: BlockHeaderAndIDs,
 }
 
 impl Payload for CompactBlock {
-	fn version() -> u32 {
-		70014
-	}
+    fn version() -> u32 {
+        70014
+    }
 
-	fn command() -> &'static str {
-		"cmpctblock"
-	}
+    fn command() -> &'static str {
+        "cmpctblock"
+    }
 
-	fn deserialize_payload<T>(reader: &mut Reader<T>, _version: u32) -> MessageResult<Self> where T: io::Read {
-		let block = CompactBlock {
-			header: try!(reader.read()),
-		};
+    fn deserialize_payload<T>(reader: &mut Reader<T>, _version: u32) -> MessageResult<Self>
+    where
+        T: io::Read,
+    {
+        let block = CompactBlock {
+            header: try!(reader.read()),
+        };
 
-		Ok(block)
-	}
+        Ok(block)
+    }
 
-	fn serialize_payload(&self, stream: &mut Stream, _version: u32) -> MessageResult<()> {
-		stream.append(&self.header);
-		Ok(())
-	}
+    fn serialize_payload(&self, stream: &mut Stream, _version: u32) -> MessageResult<()> {
+        stream.append(&self.header);
+        Ok(())
+    }
 }
