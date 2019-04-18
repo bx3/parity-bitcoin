@@ -27,5 +27,11 @@ build_rpc_trait! {
 		/// @curl-example: curl --data-binary '{"jsonrpc": "2.0", "method": "getrawtransaction", "params": ["4a5e1e4baab89f3a32518a88c31bc87f618f76673e2cc77ab2127b7afdeda33b"], "id":1 }' -H 'content-type: application/json' http://127.0.0.1:8332/
 		#[rpc(name = "getrawtransaction")]
 		fn get_raw_transaction(&self, H256, Trailing<bool>) -> Result<GetRawTransactionResponse, Error>;
+
+		#[rpc(name = "signrawtransaction")]
+		fn sign_raw_transaction(&self, Vec<TransactionInput>, TransactionOutputs, Trailing<u32>) -> Result<RawTransaction, Error>;
+
+		#[rpc(name = "generatekeypair")]
+		fn generate_key_pair(&self) -> Result<(), Error>;		
 	}
 }

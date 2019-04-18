@@ -869,6 +869,7 @@ dependencies = [
  "storage 0.1.0",
  "sync 0.1.0",
  "verification 0.1.0",
+ "wallet 0.1.0",
 ]
 
 [[package]]
@@ -1468,6 +1469,20 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 name = "void"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
+
+[[package]]
+name = "wallet"
+version = "0.1.0"
+dependencies = [
+ "base58 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "bitcrypto 0.1.0",
+ "eth-secp256k1 0.5.7 (git+https://github.com/ethcore/rust-secp256k1)",
+ "keys 0.1.0",
+ "lazy_static 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "primitives 0.1.0",
+ "rand 0.4.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "rustc-hex 2.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+]
 
 [[package]]
 name = "winapi"

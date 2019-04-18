@@ -14,6 +14,10 @@ use sync;
 use storage;
 use keys::Address;
 
+use keys::generator::*;
+use keys::Network as Key_Network;
+use primitives::bytes::Bytes;
+
 pub struct RawClient<T: RawClientCoreApi> {
 	core: T,
 }
@@ -245,6 +249,61 @@ impl<T> Raw for RawClient<T> where T: RawClientCoreApi {
 	fn get_raw_transaction(&self, hash: H256, verbose: Trailing<bool>) -> Result<GetRawTransactionResponse, Error> {
 		let global_hash: GlobalH256 = hash.clone().into();
 		self.core.get_raw_transaction(global_hash.reversed(), verbose.unwrap_or_default())
+	}
+
+	fn generate_key_pair(&self) -> Result<(), Error> {
+		println!("generate key pair");
+
+		let kp_generator = Random::new(Key_Network::Testnet);
+		let kp = kp_generator.generate().unwrap();
+		let private_key = kp.private();
+		let public_key = kp.public();
+		let pub_key_hash = public_key.address_hash();
+
+		println!("private {:?}", private_key);
+		println!("public {:?}", public_key);
+		println!("address {:?}", pub_key_hash);
+
+
+		Ok(())
+	}
+
+	fn create_sign_send_raw_transaction(&self, inputs: Vec<TransactionInput>, outputs: TransactionOutputs, lock_time: Trailing<u32>) -> Result<RawTransaction, Error> {
+		println!("sign_raw_transaction");
+
+		let inputs: Vec<_> = inputs.into_iter()
+			.map(|mut input| {
+				input.txid = input.txid.reversed();
+				input
+			}).collect();
+
+		let mut transaction = try!(self.core.create_raw_transaction(inputs, outputs, lock_time).map_err(|e| execution(e)));
+
+
+		let kp_generator = Random::new(Key_Network::Testnet);
+		let kp = kp_generator.generate().unwrap();
+		//let tx = transaction.clone();
+
+		println!("unsigned transaction {:?}", transaction);
+
+		//let mut tx_mut = transaction.clone();
+
+		for input in & mut transaction.inputs {
+			let txid = input.previous_output.hash.clone().into();
+			let signature = kp.private().sign(&txid).unwrap();
+
+			let mut sig_byte = signature.take();
+			println!("signature {:?}", sig_byte);
+			input.script_sig = Bytes::from(sig_byte);
+		}
+
+
+		println!("signed transaction {:?}", transaction);
+
+		let raw_transaction = serialize(&transaction);
+		let raw_transaction : RawTransaction = raw_transaction.into();
+		self.send_raw_transaction(raw_transaction.clone());
+		Ok(raw_transaction)
 	}
 }
 

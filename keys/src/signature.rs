@@ -16,6 +16,12 @@ impl fmt::Debug for Signature {
 	}
 }
 
+impl Signature {
+	pub fn take(self) -> Vec<u8> {
+		self.0
+	}
+}
+
 impl fmt::Display for Signature {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		self.0.to_hex::<String>().fmt(f)

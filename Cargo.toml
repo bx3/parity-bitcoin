@@ -26,6 +26,7 @@ import = { path = "import" }
 logs = { path = "logs" }
 rpc = { path = "rpc" }
 primitives = { path = "primitives" }
+wallet = { path = "wallet" }
 
 [profile.dev]
 debug = true
