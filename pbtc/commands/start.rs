@@ -6,7 +6,7 @@ use std::sync::mpsc::{channel, Receiver, Sender};
 use std::sync::Arc;
 use std::thread;
 use sync::{
-    create_local_sync_node, create_sync_connection_factory, create_sync_peers, SyncListener,
+    create_local_sync_node, create_sync_connection_factory, create_sync_peers, SyncListener, create_sync_wallet
 };
 use util::{init_db, node_table_path};
 use {config, p2p, PROTOCOL_MINIMUM, PROTOCOL_VERSION};
@@ -121,6 +121,9 @@ pub fn start(cfg: config::Config) -> Result<(), String> {
         sync_peers.clone(),
         cfg.verification_params,
     );
+    
+    let wallet = create_sync_wallet(local_sync_node.clone());
+    
     let sync_connection_factory =
         create_sync_connection_factory(sync_peers.clone(), local_sync_node.clone());
 

@@ -26,6 +26,7 @@ script = { path = "../script" }
 serialization = { path = "../serialization" }
 verification = { path = "../verification" }
 network = { path = "../network" }
+keys = { path = "../keys" }
 
 [dev-dependencies]
 test-data = { path = "../test-data" }
