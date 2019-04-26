@@ -19,6 +19,14 @@ use types::{
 };
 use verification::median_timestamp_inclusive;
 
+use std::collections::{HashSet, HashMap};
+use keys::AddressHash;
+use synchronization_wallet::{Coin, CoinAccessor};
+use storage::{TransactionMeta, TransactionMetaProvider};
+use script::Script;
+use storage::BlockRef;
+
+
 /// Local synchronization node
 pub struct LocalNode<T: TaskExecutor, U: Server, V: Client> {
     /// Network we are working on
@@ -84,6 +92,64 @@ where
         println!("local send unsolicited_block");
         let task_of_block = SynchronizationTask::Block(peer_index, indexed_block);
         self.executor.execute(task_of_block);
+    }
+
+    pub fn unsolicited_transaction(&self, peer_index: PeerIndex, indexed_transaction: IndexedTransaction) {
+        println!("local send unsolicited_block");
+        let task_of_transaction = SynchronizationTask::Transaction(peer_index, indexed_transaction);
+        self.executor.execute(task_of_transaction);
+    }
+
+    pub fn get_spendable(&self, coins: HashSet<CoinAccessor>) -> HashSet<Coin> {
+        let mut spendable_coins = HashSet::new();
+        for coin in &coins {
+            let outpoint = coin.outpoint.clone();
+            let transaction_meta = self.storage.transaction_meta(&outpoint.hash);
+
+            let output_provider = self.storage.as_transaction_output_provider();
+            match output_provider.transaction_output(&outpoint, usize::max_value()) {
+                None => {println!("no transaction with id {:?}", outpoint.hash);},
+                Some(tx_out) => {
+                    if output_provider.is_spent(&outpoint) {
+                        println!("transaction already spent");
+                    } else {
+                        let script_pubkey: Script = tx_out.script_pubkey.clone().into();
+
+                        let recipient_addr = script_pubkey.extract_destinations().unwrap_or(vec![]);
+
+                        if !recipient_addr.is_empty() {
+                            spendable_coins.insert(
+                                Coin::new("new coin".to_string(), outpoint, recipient_addr[0].hash.clone(), tx_out.value)
+                            );
+                        }
+                    }
+                }
+            }
+        }
+        spendable_coins
+    }
+
+    pub fn parse_blocks_get_spendable(&self) {
+        let block_provider = self.storage.as_block_provider();
+
+        //let origin_block_ref = BlockRef::Number(0);
+        //let origin_block = block_provider.block(block_ref);
+
+        let best_block = self.storage.best_block();
+        let num_blocks = best_block.number; //origin start at 0
+
+        println!("current block height \n {:?}", num_blocks);
+
+        for i in (0..num_blocks+1) {
+            let block_ref = BlockRef::Number(i);
+            let transactions = block_provider.block_transactions(block_ref);
+            for transaction in transactions {
+                ;
+            }
+
+        }
+
+
     }
 
     /// When new peer connects to the node

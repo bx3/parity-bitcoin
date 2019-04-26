@@ -5,8 +5,10 @@ use rpc_apis::{self, ApiSet};
 use std::io;
 use std::net::SocketAddr;
 use std::sync::Arc;
+use std::sync::Mutex;
 use storage;
 use sync;
+use sync::Wallet;
 
 pub struct Dependencies {
     pub network: Network,
@@ -14,6 +16,7 @@ pub struct Dependencies {
     pub storage: storage::SharedStore,
     pub p2p_context: Arc<p2p::Context>,
     pub remote: Remote,
+    pub wallet: Arc<Mutex<Wallet>>
 }
 
 #[derive(Debug, PartialEq)]

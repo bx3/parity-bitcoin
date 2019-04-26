@@ -50,7 +50,8 @@ use network::{Network, ConsensusParams};
 use primitives::hash::H256;
 use verification::BackwardsCompatibleChainVerifier as ChainVerifier;
 
-pub use synchronization_wallet::Wallet; 
+pub use synchronization_wallet::Wallet;
+pub use synchronization_wallet::WalletError;
 
 /// Sync errors.
 #[derive(Debug)]
@@ -94,7 +95,7 @@ pub fn create_sync_peers() -> PeersRef {
 }
 
 pub fn create_sync_wallet(local_node: LocalNodeRef) -> Wallet {
-	
+
 	return Wallet::new(local_node)
 }
 

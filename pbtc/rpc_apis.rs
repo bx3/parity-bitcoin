@@ -13,6 +13,8 @@ pub enum Api {
     BlockChain,
     /// Network
     Network,
+    /// Wallet
+    Wallet,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -23,7 +25,7 @@ pub enum ApiSet {
 impl Default for ApiSet {
     fn default() -> Self {
         ApiSet::List(
-            vec![Api::Raw, Api::Miner, Api::BlockChain, Api::Network]
+            vec![Api::Raw, Api::Miner, Api::BlockChain, Api::Network, Api::Wallet]
                 .into_iter()
                 .collect(),
         )
@@ -39,6 +41,7 @@ impl FromStr for Api {
             "miner" => Ok(Api::Miner),
             "blockchain" => Ok(Api::BlockChain),
             "network" => Ok(Api::Network),
+            "wallet" => Ok(Api::Wallet),
             api => Err(format!("Unknown api: {}", api)),
         }
     }
@@ -82,6 +85,10 @@ pub fn setup_rpc(
             Api::Network => handler.extend_with(
                 NetworkClient::new(NetworkClientCore::new(deps.p2p_context.clone())).to_delegate(),
             ),
+            Api::Wallet => handler.extend_with(
+                WalletClient::new(WalletClientCore::new(deps.wallet.clone())).to_delegate(),
+            )
+
         }
     }
 

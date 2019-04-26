@@ -56,7 +56,7 @@ fn run() -> Result<(), String> {
     let matches = clap::App::from_yaml(yaml).get_matches();
     let cfg = try!(config::parse(&matches));
 
-    println!("start pbtc winscp");
+    println!("start pbtc unison  ");
 
     if !cfg.quiet {
         if cfg!(windows) {
