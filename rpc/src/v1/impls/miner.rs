@@ -14,6 +14,7 @@ use chain::BlockHeader;
 
 use chain::IndexedBlock;
 use std::{thread, time};
+use global_script::Script;
 
 //use chain::IndexedBlockHeader;
 
@@ -27,6 +28,7 @@ pub trait MinerClientCoreApi: Send + Sync + 'static {
     fn get_block_template(&self) -> miner::BlockTemplate;
     fn insert_block(&self, indexed_block: IndexedBlock);
     fn execute_broadcast_block(&self, indexed_block: IndexedBlock);
+    fn print_blocks(&self);
 }
 
 pub struct MinerClientCore {
@@ -53,6 +55,10 @@ impl MinerClientCoreApi for MinerClientCore {
     fn execute_broadcast_block(&self, indexed_block: IndexedBlock) {
         self.local_sync_node.unsolicited_block(0, indexed_block);
     }
+
+    fn print_blocks(&self) {
+        self.local_sync_node.print_blocks();
+    }
 }
 
 impl<T> MinerClient<T>
@@ -68,17 +74,20 @@ impl<T> Miner for MinerClient<T>
 where
     T: MinerClientCoreApi,
 {
+    fn print_blocks(&self) -> Result<(), Error> {
+        let wallet = self.core.print_blocks();
+        Ok(())
+    }
+
     fn get_block_template(&self, _request: BlockTemplateRequest) -> Result<BlockTemplate, Error> {
-        println!("RPC get_block_template");
         Ok(self.core.get_block_template().into())
     }
 
     fn generate_blocks(&self, addrhash: H160, num_blocks: u32) -> Result<H256, Error> {
-        println!("RPC start generate_blocks");
-
         let mut hash: primitives::hash::H160 = addrhash.clone().into();
 
-        let dummy = H256::default();
+        let mut coinbase_txid = H256::default();
+
 
         for _i in 0..num_blocks {
             let peer_index = 0;
@@ -88,17 +97,12 @@ where
 
             //let mut retarget: primitives::compact::Compact = 0xfffffffffffffffffffffffff.into();
             //block_template.bits = retarget;
-            println!("block_template.bits {:?}", block_template.bits);
 
             let solution =
                 miner::find_solution(&block_template, coinbase_builder, U256::max_value());
 
             let solution = solution.unwrap();
 
-            println!(
-                "solution.coinbase_transaction.hash() {}",
-                solution.coinbase_transaction.hash()
-            );
 
             let block_header = BlockHeader {
                 version: block_template.version,
@@ -109,21 +113,21 @@ where
                 nonce: solution.nonce.clone(),
             };
 
-            let block = Block::new(block_header, vec![solution.coinbase_transaction]);
+            coinbase_txid = solution.coinbase_transaction.hash().clone().into();
+
+            let block = Block::new(block_header.clone(), vec![solution.coinbase_transaction]);
             let indexed_block = IndexedBlock::from(block);
-            println!("new Block\n");
-            println!("{:?}", indexed_block);
 
+            // insert to local
             self.core.insert_block(indexed_block.clone());
-
-            //broadcast to do
+            //broadcast
             self.core.execute_broadcast_block(indexed_block);
 
             let ten_millis = time::Duration::from_millis(100);
             thread::sleep(ten_millis);
         }
 
-        Ok(dummy)
+        Ok(coinbase_txid)
     }
 }
 

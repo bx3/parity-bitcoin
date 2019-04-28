@@ -10,6 +10,9 @@ use v1::traits::Wallet;
 use sync::Wallet as LocalWallet;
 use v1::types::H160 as AddressHash_ser;
 use keys::AddressHash;
+use primitives::hash::H256;
+use v1::types::H256 as H256_ser;
+use chain::OutPoint;
 
 pub struct WalletClient<T: WalletClientCoreApi> {
     core: T,
@@ -19,6 +22,8 @@ pub trait WalletClientCoreApi: Send + Sync + 'static {
     fn get_balance(&self) -> Result<(), Error>;
     fn shard_pay(&self, recipient: AddressHash, value: u64) -> Result<(), Error>;
     fn get_spendable(&self) -> Result<(), Error>;
+    fn wallet_add_tx(&self, H256, u32) -> Result<(), Error>;
+    fn generate_keypair(&self) -> Result<AddressHash, Error>;
 }
 
 pub struct WalletClientCore {
@@ -51,6 +56,18 @@ impl WalletClientCoreApi for WalletClientCore {
         let balance = wallet.get_spendable();
         Ok(())
     }
+
+    fn wallet_add_tx(&self, txid: H256, index: u32) -> Result<(), Error> {
+        let mut wallet = self.wallet.lock().unwrap();
+
+        let balance = wallet.add_tx_to_candidate(txid, index);
+        Ok(())
+    }
+
+    fn generate_keypair(&self) -> Result<AddressHash, Error> {
+        let mut wallet = self.wallet.lock().unwrap();
+        Ok(wallet.generate_keypair().unwrap())
+    }
 }
 
 impl<T> WalletClient<T>
@@ -77,5 +94,16 @@ where
 
     fn get_spendable(&self) -> Result<(), Error> {
         Ok(self.core.get_spendable().unwrap())
+    }
+
+    fn wallet_add_tx(&self, txid: H256_ser, index: u32) -> Result<(), Error> {
+        let txid = txid.reversed().into();
+        self.core.wallet_add_tx(txid, index);
+        Ok(())
+    }
+
+    fn generate_keypair(&self) -> Result<AddressHash_ser, Error> {
+        let addr = self.core.generate_keypair().unwrap();
+        Ok(addr.into())
     }
 }

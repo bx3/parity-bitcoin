@@ -29,12 +29,13 @@ use std::collections::HashSet;
 pub enum WalletError {
     InsufficientMoney,
     MissingKey,
+    DuplicatePublicKey,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Default, Hash)]
 pub struct CoinAccessor {
-    pub id: String,
-    pub outpoint: OutPoint
+    id: String,
+    outpoint: OutPoint
 }
 
 impl CoinAccessor {
@@ -44,6 +45,9 @@ impl CoinAccessor {
             outpoint,
         }
     }
+
+
+    pub fn get_new_outpoint(&self) -> OutPoint {self.outpoint.clone()}
 }
 
 
@@ -74,6 +78,7 @@ pub struct Wallet {
     local_node: LocalNodeRef,
 	coins: HashSet<Coin>,
 	keypairs: HashMap<AddressHash, KeyPair>,
+    coins_candidate: HashSet<CoinAccessor>,
 }
 
 impl Wallet {
@@ -82,20 +87,25 @@ impl Wallet {
             local_node: local_sync_node,
             coins: HashSet::new(),
             keypairs: HashMap::new(),
+            coins_candidate: HashSet::new()
         }
 	}
 
-	pub fn generate_key_pair(&mut self) {
+	pub fn generate_keypair(&mut self) -> Result<AddressHash, WalletError> {
 		let kp_generator = Random::new(Key_Network::Testnet);
 		let kp = kp_generator.generate().unwrap();
 
 		let pub_key_hash = kp.public().address_hash();
 
+        println!("pub_key_hash: \t {:?}", pub_key_hash);
+
 		if self.keypairs.contains_key(&pub_key_hash) {
 			println!("pubkey exists, no key generated, retry");
+            return Err(WalletError::DuplicatePublicKey);
 		} else {
-			self.keypairs.insert(pub_key_hash, kp);
+			self.keypairs.insert(pub_key_hash.clone(), kp);
 		}
+        Ok(pub_key_hash)
 	}
 
     pub fn get_pubkey(&self) -> Result<&Public, WalletError> {
@@ -233,8 +243,19 @@ impl Wallet {
 
     pub fn get_spendable(&mut self) {
         println!("where is my money -ask-> local nodes");
-        self.local_node.parse_blocks_get_spendable();
-        //let coins: HashSet<CoinAccessor>
-        //self.local_node.get_spendable();
+        self.coins = self.local_node.get_spendable(&self.coins_candidate);
+    }
+
+    pub fn add_tx_to_candidate(&mut self,  hash: H256, index: u32) {
+        println!("add tx {:?} out {} to candidate pool", hash, index);
+        self.coins_candidate.insert(
+            CoinAccessor {
+                id: "new coin".to_string(),
+                outpoint: chain::OutPoint {
+                            hash: hash.reversed(),
+                            index
+                }
+            }
+        );
     }
 }

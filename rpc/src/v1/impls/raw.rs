@@ -325,21 +325,7 @@ where
             .get_raw_transaction(global_hash.reversed(), verbose.unwrap_or_default())
     }
 
-    fn generate_key_pair(&self) -> Result<(), Error> {
-        println!("generate key pair");
-
-        let kp_generator = Random::new(Key_Network::Testnet);
-        let kp = kp_generator.generate().unwrap();
-        let private_key = kp.private();
-        let public_key = kp.public();
-        let pub_key_hash = public_key.address_hash();
-
-        println!("private {:?}", private_key);
-        println!("public {:?}", public_key);
-        println!("address {:?}", pub_key_hash);
-
-        Ok(())
-    }
+    
 
     fn sign_raw_transaction(
         &self,

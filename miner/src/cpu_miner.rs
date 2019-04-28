@@ -115,8 +115,6 @@ impl Sh_CoinbaseTransactionBuilder {
             lock_time: 0,
         };
 
-        println!("transaction hash {:?}", transaction.hash());
-
         Sh_CoinbaseTransactionBuilder {
             transaction: transaction,
         }
@@ -158,7 +156,8 @@ pub fn find_solution<T>(
 ) -> Option<Solution>
 where
     T: CoinbaseTransactionBuilder,
-{
+{    
+
     let mut extranonce = U256::default();
     let mut extranonce_bytes = [0u8; 32];
 

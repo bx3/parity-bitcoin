@@ -100,10 +100,11 @@ where
         self.executor.execute(task_of_transaction);
     }
 
-    pub fn get_spendable(&self, coins: HashSet<CoinAccessor>) -> HashSet<Coin> {
+    pub fn get_spendable(&self, coins: &HashSet<CoinAccessor>) -> HashSet<Coin> {
         let mut spendable_coins = HashSet::new();
-        for coin in &coins {
-            let outpoint = coin.outpoint.clone();
+
+        for coin in coins {
+            let outpoint = coin.get_new_outpoint();
             let transaction_meta = self.storage.transaction_meta(&outpoint.hash);
 
             let output_provider = self.storage.as_transaction_output_provider();
@@ -129,7 +130,52 @@ where
         spendable_coins
     }
 
-    pub fn parse_blocks_get_spendable(&self) {
+
+
+    pub fn print_blocks(&self) {
+        println!("**********PRINT blockchain********");
+        let block_provider = self.storage.as_block_provider();
+
+        //let origin_block_ref = BlockRef::Number(0);
+        //let origin_block = block_provider.block(block_ref);
+
+        let best_block = self.storage.best_block();
+        let num_blocks = best_block.number; //origin start at 0
+
+        println!("current block height \n {:?}", num_blocks);
+
+        for i in (0..num_blocks+1) {
+            let block_ref = BlockRef::Number(i);
+            let bp = self.storage.as_block_provider();
+            let block = bp.block(block_ref.clone()).unwrap();
+
+            let bhp = self.storage.as_block_header_provider();
+            let block_header = bhp.block_header(block_ref.clone()).unwrap();
+
+            //println!("block header hash {:?}\n", block_header.hash().reversed());
+            //println!("block header {:?}\n", block_header);
+
+            println!("block {} header hash {:?}", i, block.header().hash().reversed());
+
+            let transactions = block_provider.block_transactions(block_ref);
+            for transaction in transactions {
+                if ( transaction.is_coinbase()) {
+                    let index_tx: IndexedTransaction = transaction.into();
+                    println!("{:?}\n\n\n", index_tx); //no more
+
+                } else {
+                    println!("seen noncoinbase transaction");
+                }
+            }
+
+        }
+
+        println!("**********PRINT blockchain END********");
+    }
+
+
+    pub fn print_transaction_output(&self) {
+        println!("**********PRINT transactions********");
         let block_provider = self.storage.as_block_provider();
 
         //let origin_block_ref = BlockRef::Number(0);
@@ -144,12 +190,18 @@ where
             let block_ref = BlockRef::Number(i);
             let transactions = block_provider.block_transactions(block_ref);
             for transaction in transactions {
-                ;
+                if ( transaction.is_coinbase()) {
+                    println!("txid: {:?}\n", transaction.hash()); //no more
+                    println!("{:?}\n\n\n", transaction); //no more
+
+                } else {
+                    println!("seen noncoinbase transaction");
+                }
             }
 
         }
 
-
+        println!("**********PRINT transactions END********");
     }
 
     /// When new peer connects to the node

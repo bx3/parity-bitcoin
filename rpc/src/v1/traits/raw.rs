@@ -31,7 +31,6 @@ build_rpc_trait! {
         #[rpc(name = "signrawtransaction")]
         fn sign_raw_transaction(&self, Vec<TransactionInput>, TransactionOutputs, Trailing<u32>) -> Result<RawTransaction, Error>;
 
-        #[rpc(name = "generatekeypair")]
-        fn generate_key_pair(&self) -> Result<(), Error>;
+        
     }
 }

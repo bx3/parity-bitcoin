@@ -16,5 +16,7 @@ build_rpc_trait! {
         #[rpc(name = "generateblocks")]
         fn generate_blocks(&self, H160, u32) -> Result<H256, Error>;
 
+        #[rpc(name = "print_blocks")]
+        fn print_blocks(&self) -> Result<(), Error>;    
     }
 }

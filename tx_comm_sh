@@ -1,0 +1,51 @@
+#!/bin/bash
+
+gen_keypair_json() 
+{
+cat <<EOF
+{
+	"jsonrpc": "2.0", 
+	"method": "generatekeypair", 
+	"params": [], 
+	"id":1
+}
+EOF
+}
+
+mine_block_json() 
+{
+cat <<EOF
+{
+	"jsonrpc": "2.0", 
+	"method": "generateblocks", 
+	"params": ["$1", 1], 
+	"id":1 
+}
+EOF
+}
+
+curl_gen_keypair()
+{
+curl \
+-H 'content-type: application/json' \
+--data-binary "$(gen_keypair_json)" localhost:18443 | jq '.result' 
+}
+
+curl_mine_block()
+{
+curl \
+-H 'content-type: application/json' \
+--data-binary "$1" localhost:18443 | jq '.result' 
+}
+
+
+ADDRHASH=$(curl_gen_keypair)
+
+MINE_JSON=mine_block_json ADDRHASH
+
+BLOCK=$(curl_mine_block $MINE_JSON) 
+
+echo $BLOCK
+#echo "hello"
+
+

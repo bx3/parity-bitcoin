@@ -171,7 +171,6 @@ where
     }
 
     fn on_block(&self, peer_index: PeerIndex, block: IndexedBlock) {
-        println!("client on_block start");
         // block can became:
         // ignored, unknown, orphaned => no verification should occur
         // on-time => this block + all dependent orphaned should be verified
@@ -195,7 +194,6 @@ where
         if !client.try_switch_to_saturated_state() {
             client.execute_synchronization_tasks(None, None);
         }
-        println!("client on_block stop");
     }
 
     fn on_transaction(&self, peer_index: PeerIndex, transaction: IndexedTransaction) {
