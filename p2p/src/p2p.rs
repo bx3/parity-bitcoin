@@ -199,7 +199,6 @@ impl Context {
         T: SessionFactory,
     {
         trace!("Trying to connect to: {}", socket);
-        println!("Trying to connect to: {}", socket);
         let connection = connect(&socket, handle, config);
         Box::new(
             connection
@@ -208,7 +207,6 @@ impl Context {
                         Ok(DeadlineStatus::Meet(Ok(connection))) => {
                             // successfull hanshake
                             trace!("Connected to {}", connection.address);
-                            println!("Connected to {}", connection.address);
                             context
                                 .node_table
                                 .write()
@@ -226,7 +224,6 @@ impl Context {
                         Ok(DeadlineStatus::Meet(Err(_))) => {
                             // protocol error
                             trace!("Handshake with {} failed", socket);
-                            println!("Handshake with {} failed", socket);
                             // TODO: close socket
                             context.node_table.write().note_failure(&socket);
                             context.connection_counter.note_close_outbound_connection();
@@ -235,7 +232,6 @@ impl Context {
                         Ok(DeadlineStatus::Timeout) => {
                             // connection time out
                             trace!("Handshake with {} timed out", socket);
-                            println!("Handshake with {} timed out", socket);
                             // TODO: close socket
                             context.node_table.write().note_failure(&socket);
                             context.connection_counter.note_close_outbound_connection();
@@ -243,8 +239,7 @@ impl Context {
                         }
                         Err(_) => {
                             // network error
-                            trace!("Unable to connect to {}", socket);
-                            println!("network Unable to connect to {}", socket);
+                            trace!("Unable to connect to {}", socket);                            
                             context.node_table.write().note_failure(&socket);
                             context.connection_counter.note_close_outbound_connection();
                             Box::new(finished(Ok(())))
@@ -397,10 +392,10 @@ impl Context {
                         command,
                         channel.peer_info().address
                     );
-                    println!(
-                        "p2p receive, on_message, from {:?}",
-                        channel.peer_info().address
-                    );
+                    //println!(
+                    //    "p2p receive, on_message, from {:?}",
+                    //    channel.peer_info().address
+                    //);
                     // handle message and read the next one
                     match channel.session().on_message(command, payload) {
                         Ok(_) => {
@@ -607,8 +602,8 @@ impl P2P {
             self.connect::<NormalSessionFactory>(*peer);
         }
 
-        let net_ip1 = std::net::IpAddr::V4(std::net::Ipv4Addr::new(172, 24, 0, 2));
-        let net_ip2 = std::net::IpAddr::V4(std::net::Ipv4Addr::new(172, 24, 0, 3));
+        let net_ip1 = std::net::IpAddr::V4(std::net::Ipv4Addr::new(172, 25, 0, 2));
+        let net_ip2 = std::net::IpAddr::V4(std::net::Ipv4Addr::new(172, 25, 0, 3));
         let peer1 = SocketAddr::new(net_ip1, 18444);
         let peer2 = SocketAddr::new(net_ip2, 18444);
 

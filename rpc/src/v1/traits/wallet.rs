@@ -16,8 +16,9 @@ build_rpc_trait! {
         #[rpc(name = "getbalance")]
         fn get_balance(&self) -> Result<(), Error>;
 
+        // index is 0, for outpoint
         #[rpc(name = "shardpay")]
-        fn shard_pay(&self, AddressHash_ser, u64) -> Result<(), Error>;
+        fn shard_pay(&self, AddressHash_ser, u64) -> Result<H256_ser, Error>;
 
         #[rpc(name = "getspendable")]
         fn get_spendable(&self) -> Result<(), Error>;
@@ -25,6 +26,8 @@ build_rpc_trait! {
         #[rpc(name = "walletaddtx")]
         fn wallet_add_tx(&self, H256_ser, u32) -> Result<(), Error>;
 
-        
+        #[rpc(name = "getaddresshash")]
+        fn get_addresshash(&self) -> Result<AddressHash_ser, Error>;
+
     }
 }

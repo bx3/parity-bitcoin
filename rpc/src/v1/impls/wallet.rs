@@ -20,10 +20,11 @@ pub struct WalletClient<T: WalletClientCoreApi> {
 
 pub trait WalletClientCoreApi: Send + Sync + 'static {
     fn get_balance(&self) -> Result<(), Error>;
-    fn shard_pay(&self, recipient: AddressHash, value: u64) -> Result<(), Error>;
+    fn shard_pay(&self, recipient: AddressHash, value: u64) -> Result<H256, Error>;
     fn get_spendable(&self) -> Result<(), Error>;
     fn wallet_add_tx(&self, H256, u32) -> Result<(), Error>;
     fn generate_keypair(&self) -> Result<AddressHash, Error>;
+    fn get_addresshash(&self) -> Result<AddressHash, Error>;
 }
 
 pub struct WalletClientCore {
@@ -45,10 +46,10 @@ impl WalletClientCoreApi for WalletClientCore {
         Ok(())
     }
 
-    fn shard_pay(&self, addrhash: AddressHash, value: u64) -> Result<(), Error> {
+    fn shard_pay(&self, addrhash: AddressHash, value: u64) -> Result<H256, Error> {
         let mut wallet = self.wallet.lock().unwrap();
-        wallet.pay(addrhash, value);
-        Ok(())
+        Ok(wallet.pay(addrhash, value).unwrap())
+
     }
 
     fn get_spendable(&self) -> Result<(), Error> {
@@ -67,6 +68,11 @@ impl WalletClientCoreApi for WalletClientCore {
     fn generate_keypair(&self) -> Result<AddressHash, Error> {
         let mut wallet = self.wallet.lock().unwrap();
         Ok(wallet.generate_keypair().unwrap())
+    }
+
+    fn get_addresshash(&self) -> Result<AddressHash, Error> {
+        let wallet = self.wallet.lock().unwrap();
+        Ok(wallet.get_addresshash().unwrap())
     }
 }
 
@@ -87,9 +93,9 @@ where
         Ok(self.core.get_balance().unwrap())
     }
 
-    fn shard_pay(&self, addrhash: AddressHash_ser, value: u64) -> Result<(), Error> {
+    fn shard_pay(&self, addrhash: AddressHash_ser, value: u64) -> Result<H256_ser, Error> {
         let mut receipant_hash: AddressHash = addrhash.clone().into();
-        Ok(self.core.shard_pay(receipant_hash, value).unwrap())
+        Ok(self.core.shard_pay(receipant_hash, value).unwrap().into())
     }
 
     fn get_spendable(&self) -> Result<(), Error> {
@@ -104,6 +110,11 @@ where
 
     fn generate_keypair(&self) -> Result<AddressHash_ser, Error> {
         let addr = self.core.generate_keypair().unwrap();
+        Ok(addr.into())
+    }
+
+    fn get_addresshash(&self) -> Result<AddressHash_ser, Error> {
+        let addr = self.core.get_addresshash().unwrap();
         Ok(addr.into())
     }
 }

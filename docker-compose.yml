@@ -1,20 +1,20 @@
-version: '3'
+version: "3"
 services:
   node1:
     container_name: node1
     build: .
     ports:
-      - "50000:18443" 
+      - "50000:18443"
       - "50001:18444"
-    entrypoint: /bin/bash compile_and_run.sh
     volumes:
-      - .:/build/parity-bitcoin
+      - ./:/build/parity-bitcoin
+    entrypoint: python docker_start.py
   node2:
     container_name: node2
-    build: .
-    ports: 
-      - "50002:18443" 
+    image: shard-parity-bitcoin_node1 
+    ports:
+      - "50002:18443"
       - "50003:18444"
     volumes:
-      - .:/build/parity-bitcoin
-    entrypoint: /bin/bash compile_and_run.sh
+      - ./:/build/parity-bitcoin
+    entrypoint: python docker_start.py

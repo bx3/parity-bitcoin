@@ -51,9 +51,18 @@ pub fn new_http(conf: HttpConfiguration, deps: Dependencies) -> Result<Option<Se
     let addr = try!(url
         .parse()
         .map_err(|_| format!("Invalid JSONRPC listen host/port given: {}", url)));
+
+    //println!("addr {:#?}", addr);
+    //let allowed_hosts = Some(vec!["172.25.0.2".to_string(), "172.25.0.3".to_string()]);
+
+    //Ok(Some(try!(setup_http_rpc_server(
+    //    &addr, conf.cors, allowed_hosts, conf.apis, deps
+    //))))
+
     Ok(Some(try!(setup_http_rpc_server(
         &addr, conf.cors, conf.hosts, conf.apis, deps
     ))))
+
 }
 
 pub fn setup_http_rpc_server(

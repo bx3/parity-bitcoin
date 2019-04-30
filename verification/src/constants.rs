@@ -1,7 +1,7 @@
 //! Consenus constants
 
 pub const BLOCK_MAX_FUTURE: i64 = 2 * 60 * 60; // 2 hours
-pub const COINBASE_MATURITY: u32 = 100; // 2 hours
+pub const COINBASE_MATURITY: u32 = 0; // 2 hours 100
 pub const MIN_COINBASE_SIZE: usize = 2;
 pub const MAX_COINBASE_SIZE: usize = 100;
 

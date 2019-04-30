@@ -21,7 +21,7 @@ pub fn start_http<M: jsonrpc_core::Metadata>(
             })
             .collect()
     });
-
+    println!("before ServerBuilder allowed_hosts {:?}", allowed_hosts);
     ServerBuilder::new(handler)
         .cors(cors_domains.into())
         .allowed_hosts(

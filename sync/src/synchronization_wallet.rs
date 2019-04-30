@@ -115,9 +115,10 @@ impl Wallet {
         Err(WalletError::MissingKey)
     }
 
-    pub fn get_pubkey_hash(&self) -> Result<&AddressHash, WalletError> {
+
+    pub fn get_addresshash(&self) -> Result<AddressHash, WalletError> {
         if let Some(pubkey_hash) = self.keypairs.keys().next() {
-            return Ok(pubkey_hash);
+            return Ok(pubkey_hash.clone());
         }
         Err(WalletError::MissingKey)
     }
@@ -135,6 +136,10 @@ impl Wallet {
 
     fn delete_coin(&mut self, coin: &Coin) {
         self.coins.remove(coin);
+    }
+
+    fn add_coin_candidate(&mut self, coin: CoinAccessor) {
+        self.coins_candidate.insert(coin);
     }
 
     //Transaction
@@ -156,8 +161,11 @@ impl Wallet {
             return Err(WalletError::InsufficientMoney);
         }
 
+        println!("\nbuild a transaction to {:?}\n", recipient);
 
         let script = ScriptBuilder::build_p2pkh(&recipient);
+        println!("build_p2pkh {:?}\n", script);
+        println!("build_p2pkh byte {:?}\n", script.to_bytes());
 
         // if we have enough money in our wallet, create tx
 
@@ -170,7 +178,7 @@ impl Wallet {
 
         if value_sum > value {
             // transfer the remaining value back to self
-            let recipient = self.get_pubkey_hash()?;
+            let recipient = self.get_addresshash()?;
             transaction_outputs.push(
                 TransactionOutput {
                     value: value_sum - value,
@@ -179,9 +187,12 @@ impl Wallet {
             );
         };
 
+        println!("transaction outputs {:?}\n", transaction_outputs);
+
         // create unsigned transaction inputs
         let mut unsigned_inputs: Vec<UnsignedTransactionInput> = vec![];
         for coin in &coins_to_use {
+            println!("use coin {:?}\n", coin);
             unsigned_inputs.push(UnsignedTransactionInput {
                     previous_output: coin.outpoint.clone(),
                     sequence: 0x00,
@@ -201,11 +212,15 @@ impl Wallet {
         for (i, coin) in coins_to_use.iter().enumerate() {
 
             let keypair = self.keypairs.get(&coin.recipient_addr).unwrap();
+            println!("use keypair {:#?}", keypair);
+            println!("addresshash {:#?}\n", keypair.public().address_hash());
             let to_me_pubkey_script = ScriptBuilder::build_p2pkh(&coin.recipient_addr);
             signed_inputs.push(
                 unsigned_transactions.signed_input(keypair, i, coin.value,
                             &to_me_pubkey_script, SignatureVersion::Base, 0x40)
             );
+
+
         }
 
         // remove used coin from wallet
@@ -219,16 +234,27 @@ impl Wallet {
             outputs: transaction_outputs,
             lock_time: 0,
         };
+
+        println!("transctions {:?}", transaction);
+
+        let return_outpoint = OutPoint { hash: transaction.hash(), index: 1};
+        self.add_coin_candidate(
+            CoinAccessor {
+                id: "pay back coin".to_string(),
+                outpoint: return_outpoint
+            }
+        );
+
         Ok((transaction))
     }
 
-    pub fn pay(&mut self, recipient: AddressHash, value: u64) {
+    pub fn pay(&mut self, recipient: AddressHash, value: u64) -> Result<H256, WalletError> {
         println!("i am paying {} to {:?}", value, recipient);
         let tx = match self.create_transaction(recipient, value) {
             Ok(tx) => tx,
             Err(err) => match err {
-                InsufficientMoney => {println!("you have insufficient money"); return;},
-                MissingKey => {println!("create a pair of private, public key"); return;},
+                InsufficientMoney => {println!("you have insufficient money"); return Err(InsufficientMoney);},
+                MissingKey => {println!("create a pair of private, public key"); return Err(MissingKey);},
             }
         };
 
@@ -239,6 +265,8 @@ impl Wallet {
         self.local_node.on_transaction(peer_index.clone(), indexed_transaction.clone());
         // send to network
         self.local_node.unsolicited_transaction(peer_index.clone(), indexed_transaction.clone());
+
+        Ok(indexed_transaction.hash)
     }
 
     pub fn get_spendable(&mut self) {
@@ -252,10 +280,12 @@ impl Wallet {
             CoinAccessor {
                 id: "new coin".to_string(),
                 outpoint: chain::OutPoint {
-                            hash: hash.reversed(),
-                            index
+                        hash: hash.reversed(),
+                        index
                 }
             }
         );
     }
+
+
 }

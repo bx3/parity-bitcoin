@@ -26,6 +26,7 @@ use storage::{TransactionMeta, TransactionMetaProvider};
 use script::Script;
 use storage::BlockRef;
 
+use miner::MemoryPoolOrderingStrategy;
 
 /// Local synchronization node
 pub struct LocalNode<T: TaskExecutor, U: Server, V: Client> {
@@ -171,6 +172,13 @@ where
         }
 
         println!("**********PRINT blockchain END********");
+        println!("**********memory pool********");
+
+        let memory_pool = &*self.memory_pool.read();
+        let mut mempool_iter = memory_pool.iter(MemoryPoolOrderingStrategy::ByTimestamp);
+        while let Some(entry) = mempool_iter.next() {
+            println!("{:?}", entry.transaction);
+        }
     }
 
 
