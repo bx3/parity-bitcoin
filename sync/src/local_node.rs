@@ -105,15 +105,17 @@ where
         let mut spendable_coins = HashSet::new();
 
         for coin in coins {
-            let outpoint = coin.get_new_outpoint();
+            let mut outpoint = coin.get_new_outpoint();
             let transaction_meta = self.storage.transaction_meta(&outpoint.hash);
+            println!("coin access {:#?}", coin);
+            println!("transaction_meta {:?}", transaction_meta);
 
             let output_provider = self.storage.as_transaction_output_provider();
             match output_provider.transaction_output(&outpoint, usize::max_value()) {
-                None => {println!("no transaction with id {:?}", outpoint.hash);},
+                None => {println!("no transaction with id {:?\n}", outpoint.hash.clone());},
                 Some(tx_out) => {
                     if output_provider.is_spent(&outpoint) {
-                        println!("transaction already spent");
+                        println!("transaction already spent\n");
                     } else {
                         let script_pubkey: Script = tx_out.script_pubkey.clone().into();
 
@@ -121,7 +123,7 @@ where
 
                         if !recipient_addr.is_empty() {
                             spendable_coins.insert(
-                                Coin::new("new coin".to_string(), outpoint, recipient_addr[0].hash.clone(), tx_out.value)
+                                Coin::new( coin.id.clone() , outpoint, recipient_addr[0].hash.clone(), tx_out.value)
                             );
                         }
                     }
@@ -160,12 +162,12 @@ where
 
             let transactions = block_provider.block_transactions(block_ref);
             for transaction in transactions {
+                let indexed_tx: IndexedTransaction = transaction.clone().into();
                 if ( transaction.is_coinbase()) {
-                    let index_tx: IndexedTransaction = transaction.into();
-                    println!("{:?}\n\n\n", index_tx); //no more
+                    println!("coinbase tx {:#?}\n\n\n", indexed_tx); //no more
 
                 } else {
-                    println!("seen noncoinbase transaction");
+                    println!("regular tx  {:#?}\n\n\n", indexed_tx); //no more
                 }
             }
 
@@ -177,8 +179,10 @@ where
         let memory_pool = &*self.memory_pool.read();
         let mut mempool_iter = memory_pool.iter(MemoryPoolOrderingStrategy::ByTimestamp);
         while let Some(entry) = mempool_iter.next() {
+            println!("txid {:?}", entry.transaction.hash());
             println!("{:?}", entry.transaction);
         }
+        println!("**********memory pool end********");
     }
 
 

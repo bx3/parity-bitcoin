@@ -14,7 +14,7 @@ build_rpc_trait! {
         fn generate_keypair(&self) -> Result<AddressHash_ser, Error>;
 
         #[rpc(name = "getbalance")]
-        fn get_balance(&self) -> Result<(), Error>;
+        fn get_balance(&self) -> Result<u64, Error>;
 
         // index is 0, for outpoint
         #[rpc(name = "shardpay")]

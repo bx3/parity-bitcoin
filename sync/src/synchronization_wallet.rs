@@ -34,8 +34,8 @@ pub enum WalletError {
 
 #[derive(Debug, PartialEq, Eq, Clone, Default, Hash)]
 pub struct CoinAccessor {
-    id: String,
-    outpoint: OutPoint
+    pub id: String,
+    pub outpoint: OutPoint
 }
 
 impl CoinAccessor {
@@ -79,6 +79,7 @@ pub struct Wallet {
 	coins: HashSet<Coin>,
 	keypairs: HashMap<AddressHash, KeyPair>,
     coins_candidate: HashSet<CoinAccessor>,
+    num_coin: u64,
 }
 
 impl Wallet {
@@ -87,7 +88,8 @@ impl Wallet {
             local_node: local_sync_node,
             coins: HashSet::new(),
             keypairs: HashMap::new(),
-            coins_candidate: HashSet::new()
+            coins_candidate: HashSet::new(),
+            num_coin: 0
         }
 	}
 
@@ -96,8 +98,6 @@ impl Wallet {
 		let kp = kp_generator.generate().unwrap();
 
 		let pub_key_hash = kp.public().address_hash();
-
-        println!("pub_key_hash: \t {:?}", pub_key_hash);
 
 		if self.keypairs.contains_key(&pub_key_hash) {
 			println!("pubkey exists, no key generated, retry");
@@ -127,10 +127,12 @@ impl Wallet {
     pub fn get_balance(&self) -> u64 {
         let balance =   self.coins
                         .iter()
-                        .map(|coin| coin.value)
+                        .map(|coin| {
+                            println!("{:#?}", coin);
+                            coin.value
+                        })
                         .sum::<u64>();
-
-        println!("get_balance {}", balance);
+        println!("balance {}", balance);
         balance
     }
 
@@ -164,8 +166,6 @@ impl Wallet {
         println!("\nbuild a transaction to {:?}\n", recipient);
 
         let script = ScriptBuilder::build_p2pkh(&recipient);
-        println!("build_p2pkh {:?}\n", script);
-        println!("build_p2pkh byte {:?}\n", script.to_bytes());
 
         // if we have enough money in our wallet, create tx
 
@@ -225,6 +225,7 @@ impl Wallet {
 
         // remove used coin from wallet
         for c in &coins_to_use {
+            println!("delete coin {:?}", c);
             self.delete_coin(c);
         }
 
@@ -235,16 +236,15 @@ impl Wallet {
             lock_time: 0,
         };
 
-        println!("transctions {:?}", transaction);
-
         let return_outpoint = OutPoint { hash: transaction.hash(), index: 1};
+        let id = format!("{}{}", "pbc", self.num_coin);
         self.add_coin_candidate(
             CoinAccessor {
-                id: "pay back coin".to_string(),
+                id: id,
                 outpoint: return_outpoint
             }
         );
-
+        self.num_coin += 1;
         Ok((transaction))
     }
 
@@ -266,25 +266,27 @@ impl Wallet {
         // send to network
         self.local_node.unsolicited_transaction(peer_index.clone(), indexed_transaction.clone());
 
-        Ok(indexed_transaction.hash)
+        Ok(indexed_transaction.hash) //.reversed()
     }
 
     pub fn get_spendable(&mut self) {
-        println!("where is my money -ask-> local nodes");
         self.coins = self.local_node.get_spendable(&self.coins_candidate);
     }
 
     pub fn add_tx_to_candidate(&mut self,  hash: H256, index: u32) {
-        println!("add tx {:?} out {} to candidate pool", hash, index);
-        self.coins_candidate.insert(
+        println!("add tx {:?} out {} to wallet candidate pool", hash, index);
+        let id = self.num_coin.clone().to_string();
+
+        self.add_coin_candidate(
             CoinAccessor {
-                id: "new coin".to_string(),
+                id: id,
                 outpoint: chain::OutPoint {
                         hash: hash.reversed(),
                         index
                 }
             }
         );
+        self.num_coin += 1;
     }
 
 

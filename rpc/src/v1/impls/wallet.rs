@@ -19,7 +19,7 @@ pub struct WalletClient<T: WalletClientCoreApi> {
 }
 
 pub trait WalletClientCoreApi: Send + Sync + 'static {
-    fn get_balance(&self) -> Result<(), Error>;
+    fn get_balance(&self) -> Result<u64, Error>;
     fn shard_pay(&self, recipient: AddressHash, value: u64) -> Result<H256, Error>;
     fn get_spendable(&self) -> Result<(), Error>;
     fn wallet_add_tx(&self, H256, u32) -> Result<(), Error>;
@@ -40,10 +40,9 @@ impl WalletClientCore{
 }
 
 impl WalletClientCoreApi for WalletClientCore {
-    fn get_balance(&self) -> Result<(), Error> {
+    fn get_balance(&self) -> Result<u64, Error> {
         let wallet = self.wallet.lock().unwrap();
-        let balance = wallet.get_balance();
-        Ok(())
+        Ok(wallet.get_balance())
     }
 
     fn shard_pay(&self, addrhash: AddressHash, value: u64) -> Result<H256, Error> {
@@ -89,7 +88,7 @@ impl<T> Wallet for WalletClient<T>
 where
     T: WalletClientCoreApi,
 {
-    fn get_balance(&self) -> Result<(), Error> {
+    fn get_balance(&self) -> Result<u64, Error> {
         Ok(self.core.get_balance().unwrap())
     }
 

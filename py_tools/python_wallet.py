@@ -5,6 +5,7 @@ import json
 import socket
 import subprocess
 import os
+from time import sleep
 
 session = requests.Session()
 session.trust_env = False
@@ -56,6 +57,7 @@ def gen_keypair(url):
 	payload = {"jsonrpc": "2.0", "method": "generatekeypair", "params": [], "id":1 } 
 	return  send_json(url, payload).get('result')
 
+# return coinbase txid
 def mine_block(url, addresshash, num_block):
 	payload = {"jsonrpc": "2.0", "method": "generateblocks", "params": [addresshash, num_block], "id":1 }
 	return send_json(url, payload).get('result')
@@ -73,8 +75,9 @@ def print_blocks(url):
 	send_json(url, payload)
 
 def get_balance(url):
+	update_wallet(url)
 	payload = {"jsonrpc": "2.0", "method": "getbalance", "params": [], "id":1 }
-	send_json(url, payload)
+	return send_json(url, payload).get('result')
 
 def get_addresshash(url):
 	payload = {"jsonrpc": "2.0", "method": "getaddresshash", "params": [], "id":1 } 
@@ -90,10 +93,13 @@ def init_addr_with_fund(url):
 	address_hash = gen_keypair(url)
 	print("my addresshash", address_hash)
 	txid = mine_block(url, address_hash, 1) # gen 1 block
-	print_blocks(url)
+	print("mined a block with coinbase txid " + txid)
+	#print_blocks(url)
 	add_tx_to_wallet(url, txid, 0) # first tx
 	update_wallet(url)
-	get_balance(url)
+	my_balance = get_balance(url)
+	print("your balance")
+	print(my_balance)
 
 def pay_peer(my_url, peer_url, amount):
 	peer_addresshash = ""
@@ -102,21 +108,31 @@ def pay_peer(my_url, peer_url, amount):
 	else:
 		peer_addresshash = gen_keypair(my_url)
 	
-	print('peer_addrhash', peer_addresshash)
+	print('get peer_addrhash', peer_addresshash)
 	txid = shard_pay(my_url, peer_addresshash, amount)
+	print('pay to peer txid', txid)
 	add_tx_to_wallet(peer_url, txid, 0) # first tx
+	
 
 		
 
 print("local_url", local_url)
+print("peer_url", peer_url)
+
 init_addr_with_fund(local_url)
-pay_peer(local_url, peer_url, 5)
+pay_peer(local_url, peer_url, 3)
+print("after pay peer")
+print(get_balance(local_url))
+sleep(1)
+coinbase_id = mine_block(local_url, get_addresshash(local_url), 1)
 print_blocks(local_url)
+print("after mine a block")
+print(get_balance(local_url))
 #init_addr_with_fund(local_url)
 
 
 
-print("peer_url", peer_url)
+
 #init_addr_with_fund(peer_url)
 
 #print(address_hash)

@@ -15,6 +15,7 @@ use chain::BlockHeader;
 use chain::IndexedBlock;
 use std::{thread, time};
 use global_script::Script;
+use chain::{merkle_root, Transaction};
 
 //use chain::IndexedBlockHeader;
 
@@ -86,7 +87,7 @@ where
     fn generate_blocks(&self, addrhash: H160, num_blocks: u32) -> Result<H256, Error> {
         let mut hash: primitives::hash::H160 = addrhash.clone().into();
 
-        let mut coinbase_txid = H256::default();
+        let mut coinbase_txid_ser = H256::default();
 
 
         for _i in 0..num_blocks {
@@ -95,27 +96,42 @@ where
             let coinbase_builder = Sh_CoinbaseTransactionBuilder::new(&hash, 10);
             let block_template = self.core.get_block_template(); //.into()
 
-            //let mut retarget: primitives::compact::Compact = 0xfffffffffffffffffffffffff.into();
-            //block_template.bits = retarget;
+            println!("block template\n{:?}", block_template);
 
             let solution =
                 miner::find_solution(&block_template, coinbase_builder, U256::max_value());
 
             let solution = solution.unwrap();
+            let coinbase_txid = solution.coinbase_transaction.hash().clone();
+            coinbase_txid_ser = coinbase_txid.clone().into();
+            println!("coinbase_txid {:?}", coinbase_txid);
+            println!("non coinbase tx len {}", block_template.transactions.len());
 
+            let mut merkle_root_hash = solution.coinbase_transaction.hash().clone();
+            if block_template.transactions.len() >= 1 {
+                let mut merkle_tree = vec![&coinbase_txid];
+                merkle_tree.extend(block_template.transactions.iter().map(|tx| &tx.hash));
+                merkle_root_hash = merkle_root(&merkle_tree);
+            }
 
             let block_header = BlockHeader {
                 version: block_template.version,
                 previous_header_hash: block_template.previous_header_hash.clone(),
-                merkle_root_hash: solution.coinbase_transaction.hash().clone(), //use coinbase transaction for
+                merkle_root_hash: merkle_root_hash,
                 time: solution.time.clone(),
                 bits: block_template.bits.clone(),
                 nonce: solution.nonce.clone(),
             };
 
-            coinbase_txid = solution.coinbase_transaction.hash().clone().into();
+            println!("block_header {:?}", block_header);
 
-            let block = Block::new(block_header.clone(), vec![solution.coinbase_transaction]);
+            let mut transactions = vec![solution.coinbase_transaction.clone()];
+            if block_template.transactions.len() >= 1 {
+                let mut non_coinbase_txs = block_template.transactions.iter().map(|tx| tx.raw.clone()).collect();
+                transactions.append(&mut non_coinbase_txs);
+            }
+
+            let block = Block::new(block_header.clone(), transactions);
             let indexed_block = IndexedBlock::from(block);
 
             // insert to local
@@ -126,8 +142,8 @@ where
             let ten_millis = time::Duration::from_millis(100);
             thread::sleep(ten_millis);
         }
-
-        Ok(coinbase_txid)
+        println!("coinbase_txid 2 {:?}", coinbase_txid_ser);
+        Ok(coinbase_txid_ser)
     }
 }
 
