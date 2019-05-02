@@ -18,3 +18,12 @@ services:
     volumes:
       - ./:/build/parity-bitcoin
     entrypoint: python docker_start.py
+#  node3:
+#    container_name: node3
+#    image: shard-parity-bitcoin_node1 
+#    ports:
+#      - "50004:18443"
+#      - "50005:18444"
+#    volumes:
+#      - ./:/build/parity-bitcoin
+#    entrypoint: python docker_start.py

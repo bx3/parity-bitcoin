@@ -101,21 +101,22 @@ where
         self.executor.execute(task_of_transaction);
     }
 
-    pub fn get_spendable(&self, coins: &HashSet<CoinAccessor>) -> HashSet<Coin> {
+    pub fn get_spendable(&self, coins_acc: &mut HashSet<CoinAccessor>) -> HashSet<Coin> {
         let mut spendable_coins = HashSet::new();
-
-        for coin in coins {
-            let mut outpoint = coin.get_new_outpoint();
+        let mut coins_acc_to_remove: HashSet<CoinAccessor> = HashSet::new();
+        for coin_acc in coins_acc.iter() {
+            let outpoint = coin_acc.get_new_outpoint();
             let transaction_meta = self.storage.transaction_meta(&outpoint.hash);
-            println!("coin access {:#?}", coin);
-            println!("transaction_meta {:?}", transaction_meta);
+            //println!("coin access {:?}", coin_acc.id);
+            //println!("transaction_meta {:?}", transaction_meta);
 
             let output_provider = self.storage.as_transaction_output_provider();
             match output_provider.transaction_output(&outpoint, usize::max_value()) {
-                None => {println!("no transaction with id {:?\n}", outpoint.hash.clone());},
+                None => {println!("no transaction with id {:?}", outpoint.hash.clone());},
                 Some(tx_out) => {
                     if output_provider.is_spent(&outpoint) {
-                        println!("transaction already spent\n");
+                        println!("already spent coin {:?}", coin_acc.id);
+                        coins_acc_to_remove.insert(coin_acc.clone());
                     } else {
                         let script_pubkey: Script = tx_out.script_pubkey.clone().into();
 
@@ -123,13 +124,14 @@ where
 
                         if !recipient_addr.is_empty() {
                             spendable_coins.insert(
-                                Coin::new( coin.id.clone() , outpoint, recipient_addr[0].hash.clone(), tx_out.value)
+                                Coin::new( coin_acc.id.clone() , outpoint, recipient_addr[0].hash.clone(), tx_out.value)
                             );
                         }
                     }
                 }
             }
         }
+        coins_acc.difference(&mut coins_acc_to_remove);
         spendable_coins
     }
 

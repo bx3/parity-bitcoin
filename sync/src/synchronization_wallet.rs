@@ -23,12 +23,14 @@ use script::UnsignedTransactionInput;
 use script::SignatureVersion;
 use primitives::bytes::Bytes;
 use std::collections::HashSet;
+use std::convert::From;
 
 
 #[derive(Debug)]
 pub enum WalletError {
     InsufficientMoney,
-    MissingKey,
+    EmptyKeySpace,
+    MissingKeypairForAddressHash,
     DuplicatePublicKey,
 }
 
@@ -45,9 +47,16 @@ impl CoinAccessor {
             outpoint,
         }
     }
-
-
     pub fn get_new_outpoint(&self) -> OutPoint {self.outpoint.clone()}
+}
+
+impl From<Coin> for CoinAccessor {
+    fn from(coin: Coin) -> Self{
+        CoinAccessor {
+            id: coin.id.clone(),
+            outpoint: coin.outpoint.clone()
+        }
+    }
 }
 
 
@@ -112,7 +121,7 @@ impl Wallet {
         if let Some(keypair) = self.keypairs.values().next() {
             return Ok(keypair.public());
         }
-        Err(WalletError::MissingKey)
+        Err(WalletError::EmptyKeySpace)
     }
 
 
@@ -120,7 +129,7 @@ impl Wallet {
         if let Some(pubkey_hash) = self.keypairs.keys().next() {
             return Ok(pubkey_hash.clone());
         }
-        Err(WalletError::MissingKey)
+        Err(WalletError::EmptyKeySpace)
     }
 
 
@@ -128,20 +137,30 @@ impl Wallet {
         let balance =   self.coins
                         .iter()
                         .map(|coin| {
-                            println!("{:#?}", coin);
                             coin.value
                         })
                         .sum::<u64>();
-        println!("balance {}", balance);
+
         balance
     }
 
     fn delete_coin(&mut self, coin: &Coin) {
         self.coins.remove(coin);
+        self.coins_candidate.remove(&CoinAccessor {
+            id: coin.id.clone(),
+            outpoint: coin.outpoint.clone(),
+        });
     }
 
-    fn add_coin_candidate(&mut self, coin: CoinAccessor) {
-        self.coins_candidate.insert(coin);
+    fn add_coin_candidate(&mut self, outpoint: OutPoint, desc: String) {
+        self.num_coin += 1;
+        let msg = format!("{}: {}", self.num_coin, desc);
+        self.coins_candidate.insert(
+            CoinAccessor {
+                id: msg,
+                outpoint,
+            }
+        );
     }
 
     //Transaction
@@ -160,39 +179,37 @@ impl Wallet {
         }
         if value_sum < value {
             // we don't have enough money in wallet
+            println!("WalletError::InsufficientMoney {} < {}", value_sum, value);
             return Err(WalletError::InsufficientMoney);
         }
-
-        println!("\nbuild a transaction to {:?}\n", recipient);
 
         let script = ScriptBuilder::build_p2pkh(&recipient);
 
         // if we have enough money in our wallet, create tx
 
         //tx output currently, single only
-        let mut transaction_output = TransactionOutput {
-            value: value,
-            script_pubkey: script.to_bytes(),
-        };
-        let mut transaction_outputs = vec![transaction_output];
+        let mut transaction_outputs = vec![
+            TransactionOutput {
+                value: value,
+                script_pubkey: script.to_bytes(),
+        }];
 
         if value_sum > value {
             // transfer the remaining value back to self
-            let recipient = self.get_addresshash()?;
+            let self_recipient = self.get_addresshash()?;
+            let pay_self_script = ScriptBuilder::build_p2pkh(&self_recipient);
             transaction_outputs.push(
                 TransactionOutput {
                     value: value_sum - value,
-                    script_pubkey: script.to_bytes(),
+                    script_pubkey: pay_self_script.to_bytes(),
                 }
             );
         };
 
-        println!("transaction outputs {:?}\n", transaction_outputs);
-
         // create unsigned transaction inputs
         let mut unsigned_inputs: Vec<UnsignedTransactionInput> = vec![];
         for coin in &coins_to_use {
-            println!("use coin {:?}\n", coin);
+            println!("use coin {:?}\n", coin.id);
             unsigned_inputs.push(UnsignedTransactionInput {
                     previous_output: coin.outpoint.clone(),
                     sequence: 0x00,
@@ -210,22 +227,29 @@ impl Wallet {
         let mut signed_inputs: Vec<TransactionInput> = vec![];
 
         for (i, coin) in coins_to_use.iter().enumerate() {
-
-            let keypair = self.keypairs.get(&coin.recipient_addr).unwrap();
-            println!("use keypair {:#?}", keypair);
-            println!("addresshash {:#?}\n", keypair.public().address_hash());
+            let keypair = match self.keypairs.get(&coin.recipient_addr) {
+                None => {
+                    //println!("MissingKeypairForAddressHash");
+                    //println!("coin.recipient_addr {:#?}", coin.recipient_addr);
+                    //for kp in self.keypairs.values() {
+                    //    println!("keypair {:#?}", kp.public().address_hash());
+                    //}
+                    return Err(WalletError::MissingKeypairForAddressHash);
+                },
+                Some(kp) => kp,
+            };
+            //println!("use keypair {:#?}", keypair);
+            //println!("addresshash {:#?}\n", keypair.public().address_hash());
             let to_me_pubkey_script = ScriptBuilder::build_p2pkh(&coin.recipient_addr);
             signed_inputs.push(
                 unsigned_transactions.signed_input(keypair, i, coin.value,
                             &to_me_pubkey_script, SignatureVersion::Base, 0x40)
             );
-
-
         }
 
         // remove used coin from wallet
         for c in &coins_to_use {
-            println!("delete coin {:?}", c);
+            println!("delete coin id {:?}, value {}", c.get_id(), c.value);
             self.delete_coin(c);
         }
 
@@ -237,26 +261,21 @@ impl Wallet {
         };
 
         let return_outpoint = OutPoint { hash: transaction.hash(), index: 1};
-        let id = format!("{}{}", "pbc", self.num_coin);
-        self.add_coin_candidate(
-            CoinAccessor {
-                id: id,
-                outpoint: return_outpoint
-            }
-        );
-        self.num_coin += 1;
-        Ok((transaction))
+        self.add_coin_candidate(return_outpoint, "pay to self".to_string());
+
+        Ok(transaction)
     }
 
     pub fn pay(&mut self, recipient: AddressHash, value: u64) -> Result<H256, WalletError> {
-        println!("i am paying {} to {:?}", value, recipient);
-        let tx = match self.create_transaction(recipient, value) {
-            Ok(tx) => tx,
-            Err(err) => match err {
-                InsufficientMoney => {println!("you have insufficient money"); return Err(InsufficientMoney);},
-                MissingKey => {println!("create a pair of private, public key"); return Err(MissingKey);},
-            }
-        };
+        let tx = self.create_transaction(recipient, value)?;
+        //{
+        //    Err(err) => match err {
+        //        InsufficientMoney => {println!("insufficient money Error"); return Err(InsufficientMoney)},
+        //        EmptyKeySpace => {println!("create a pair of private, public key"); return Err(EmptyKeySpace)},
+        //        MissingKeypairForAddressHash => {println!("MissingKeypairForAddressHash"); return Err(MissingKeypairForAddressHash)}
+        //    },
+        //    Ok(tx) => tx,
+        //};
 
         let indexed_transaction = IndexedTransaction::from(tx);
         let peer_index = 1000;
@@ -269,25 +288,32 @@ impl Wallet {
         Ok(indexed_transaction.hash) //.reversed()
     }
 
-    pub fn get_spendable(&mut self) {
-        self.coins = self.local_node.get_spendable(&self.coins_candidate);
+    pub fn update_wallet(&mut self) {
+        self.coins = self.local_node.get_spendable(&mut self.coins_candidate);
     }
 
-    pub fn add_tx_to_candidate(&mut self,  hash: H256, index: u32) {
-        println!("add tx {:?} out {} to wallet candidate pool", hash, index);
+    pub fn wallet_add_tx(&mut self,  hash: H256, index: u32) {
+        //println!("add tx {:?} out {} to wallet candidate pool", hash, index);
         let id = self.num_coin.clone().to_string();
-
-        self.add_coin_candidate(
-            CoinAccessor {
-                id: id,
-                outpoint: chain::OutPoint {
-                        hash: hash.reversed(),
-                        index
-                }
-            }
-        );
-        self.num_coin += 1;
+        let outpoint = chain::OutPoint {
+                            hash: hash.reversed(),
+                            index
+                        };
+        let desc = "from network".to_string();
+        self.add_coin_candidate(outpoint ,desc);
     }
 
+    pub fn print_coins(&self) {
+        println!("\n**********spendable coin");
+        for coin in self.coins.iter() {
+            println!("coin {}; value {}", coin.id, coin.value);
+        }
+
+        println!("**********coin Accessor");
+        for coin in self.coins_candidate.iter() {
+            println!("coin acc {}", coin.id);
+        }
+        println!("********************");
+    }
 
 }

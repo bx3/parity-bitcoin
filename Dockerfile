@@ -24,13 +24,18 @@ RUN apt-get update && \
         ca-certificates \
         libssl-dev \
         pkg-config \
-        libudev-dev
+        libudev-dev \
+        vim \
+        python-pip \
+        libpython2.7-stdlib
 
 # show tools
 RUN rustc -vV
 RUN cargo -V
 RUN gcc -v
 RUN g++ -v
+RUN pip install --upgrade pip
+RUN pip install requests
 
 # build pbtc
 RUN cargo build -p pbtc

@@ -25,6 +25,10 @@ pub struct MinerClient<T: MinerClientCoreApi> {
     core: T,
 }
 
+enum MinerError {
+    NoNonceSolution,
+}
+
 pub trait MinerClientCoreApi: Send + Sync + 'static {
     fn get_block_template(&self) -> miner::BlockTemplate;
     fn insert_block(&self, indexed_block: IndexedBlock);
@@ -96,16 +100,21 @@ where
             let coinbase_builder = Sh_CoinbaseTransactionBuilder::new(&hash, 10);
             let block_template = self.core.get_block_template(); //.into()
 
-            println!("block template\n{:?}", block_template);
 
-            let solution =
-                miner::find_solution(&block_template, coinbase_builder, U256::max_value());
+            let solution = match miner::find_solution(&block_template, coinbase_builder, U256::max_value()) {
+                None => {
+                    println!("NoNonceSolution");
+                    let mut err_with_message = Error::invalid_request();
+                    err_with_message.message = "NoNonceSolution".to_string();
+                    return Err(err_with_message)
+                },
+                Some(s) => s,
+            };
 
-            let solution = solution.unwrap();
             let coinbase_txid = solution.coinbase_transaction.hash().clone();
             coinbase_txid_ser = coinbase_txid.clone().into();
-            println!("coinbase_txid {:?}", coinbase_txid);
-            println!("non coinbase tx len {}", block_template.transactions.len());
+            //println!("coinbase_txid {:?}", coinbase_txid);
+            //println!("non coinbase tx len {}", block_template.transactions.len());
 
             let mut merkle_root_hash = solution.coinbase_transaction.hash().clone();
             if block_template.transactions.len() >= 1 {
@@ -123,7 +132,7 @@ where
                 nonce: solution.nonce.clone(),
             };
 
-            println!("block_header {:?}", block_header);
+            //println!("block_header {:?}", block_header);
 
             let mut transactions = vec![solution.coinbase_transaction.clone()];
             if block_template.transactions.len() >= 1 {
@@ -139,10 +148,12 @@ where
             //broadcast
             self.core.execute_broadcast_block(indexed_block);
 
-            let ten_millis = time::Duration::from_millis(100);
+            // necessary, experiment shows block is show to append without it
+            let ten_millis = time::Duration::from_millis(300);
             thread::sleep(ten_millis);
+
         }
-        println!("coinbase_txid 2 {:?}", coinbase_txid_ser);
+
         Ok(coinbase_txid_ser)
     }
 }
