@@ -505,6 +505,8 @@ where
                             warn!(target: "sync", "Peer#{} has provided dead-end block {}", peer_index, block.header.hash.to_reversed_str());
                         }
 
+                        println!("block Unknown");
+
                         if self.state.is_synchronizing() {
                             // when synchronizing, we tend to receive all blocks in-order
                             trace!(
@@ -537,6 +539,8 @@ where
                         }
                     }
                     BlockState::Verifying | BlockState::Stored => {
+
+                        println!("block Verifying | Stored");
                         // update synchronization speed
                         self.sync_speed_meter.checkpoint();
                         // remember peer as useful
@@ -580,6 +584,7 @@ where
                         result = Some(blocks_to_verify);
                     }
                     BlockState::Requested | BlockState::Scheduled => {
+                        println!("block Requested | Scheduled");
                         // remember peer as useful
                         self.peers_tasks.useful_peer(peer_index);
                         // remember as orphan block
@@ -944,6 +949,10 @@ where
     /// Process failed block verification
     fn on_block_verification_error(&self, err: &str, hash: &H256) {
         self.core.lock().on_block_verification_error(err, hash)
+    }
+
+    fn on_block_verification_error_but_proceed(&self, block: IndexedBlock) -> Option<Vec<VerificationTask>> {
+        self.core.lock().on_block_verification_error_but_proceed(block)
     }
 }
 
@@ -1357,11 +1366,92 @@ where
         }
     }
 
-    fn on_block_verification_success(
+    pub fn on_block_verification_success(
         &mut self,
         block: IndexedBlock,
     ) -> Option<Vec<VerificationTask>> {
         // update block processing speed
+        self.block_speed_meter.checkpoint();
+
+        // remove flags
+        let needs_relay = !self.do_not_relay.remove(block.hash());
+
+        let block_hash = block.hash().clone();
+        // insert block to the storage
+        match {
+            // remove block from verification queue
+            // header is removed in `insert_best_block` call
+            // or it is removed earlier, when block was removed from the verifying queue
+            if self
+                .chain
+                .forget_block_with_state_leave_header(block.hash(), BlockState::Verifying)
+                != HashPosition::Missing
+            {
+                // block was in verification queue => insert to storage
+                self.chain.insert_best_block(block)
+            } else {
+                Ok(BlockInsertionResult::default())
+            }
+        } {
+            Ok(insert_result) => {
+                // update shared state
+                self.shared_state
+                    .update_best_storage_block_height(self.chain.best_storage_block().number);
+
+                // notify listener
+                if let Some(best_block_hash) = insert_result.canonized_blocks_hashes.last() {
+                    if let Some(ref listener) = self.listener {
+                        listener.best_storage_block_inserted(best_block_hash);
+                    }
+                }
+
+                // awake threads, waiting for this block insertion
+                self.awake_waiting_threads(&block_hash);
+
+                // continue with synchronization
+                self.execute_synchronization_tasks(None, None);
+
+                // relay block to our peers
+                if needs_relay && (self.state.is_saturated() || self.state.is_nearly_saturated()) {
+                    for block_hash in insert_result.canonized_blocks_hashes {
+                        if let Some(block) = self.chain.storage().block(block_hash.into()) {
+                            self.executor.execute(Task::RelayNewBlock(block.into()));
+                        }
+                    }
+                }
+
+                // deal with block transactions
+                let mut verification_tasks: Vec<VerificationTask> =
+                    Vec::with_capacity(insert_result.transactions_to_reverify.len());
+                let next_block_height = self.chain.best_block().number + 1;
+                for tx in insert_result.transactions_to_reverify {
+                    // do not relay resurrected transactions again
+                    if let Some(tx_orphans) = self.process_peer_transaction(None, tx.into(), false)
+                    {
+                        let tx_tasks = tx_orphans
+                            .into_iter()
+                            .map(|tx| VerificationTask::VerifyTransaction(next_block_height, tx));
+                        verification_tasks.extend(tx_tasks);
+                    };
+                }
+                Some(verification_tasks)
+            }
+            Err(e) => {
+                // process as irrecoverable failure
+                panic!(
+                    "Block {} insertion failed with error {:?}",
+                    block_hash.to_reversed_str(),
+                    e
+                );
+            }
+        }
+    }
+
+
+    pub fn on_block_verification_error_but_proceed(
+        &mut self,
+        block: IndexedBlock,
+    ) -> Option<Vec<VerificationTask>> {
         self.block_speed_meter.checkpoint();
 
         // remove flags
@@ -1470,7 +1560,7 @@ where
         self.execute_synchronization_tasks(None, None);
     }
 
-    fn on_transaction_verification_success(&mut self, transaction: IndexedTransaction) {
+    pub fn on_transaction_verification_success(&mut self, transaction: IndexedTransaction) {
         // remove flags
         let needs_relay = !self.do_not_relay.remove(&transaction.hash);
 

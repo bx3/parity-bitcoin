@@ -35,6 +35,7 @@ mod synchronization_peers;
 mod synchronization_peers_tasks;
 mod synchronization_server;
 mod synchronization_verifier;
+mod synchronization_shard_block_pool;
 mod types;
 mod utils;
 
@@ -95,7 +96,6 @@ pub fn create_sync_peers() -> PeersRef {
 }
 
 pub fn create_sync_wallet(local_node: LocalNodeRef) -> Wallet {
-
 	return Wallet::new(local_node)
 }
 
@@ -111,6 +111,7 @@ pub fn create_local_sync_node(consensus: ConsensusParams, db: storage::SharedSto
 	use synchronization_verifier::AsyncVerifier;
 	use utils::SynchronizationState;
 	use types::SynchronizationStateRef;
+	use synchronization_shard_block_pool::ShardBlocksPool;
 
 	let network = consensus.network;
 	let sync_client_config = SynchronizationConfig {
@@ -136,8 +137,11 @@ pub fn create_local_sync_node(consensus: ConsensusParams, db: storage::SharedSto
 	let sync_client_core = SynchronizationClientCore::new(sync_client_config, sync_state.clone(), peers.clone(), sync_executor.clone(), sync_chain, chain_verifier.clone());
 	let verifier_sink = Arc::new(CoreVerificationSink::new(sync_client_core.clone()));
 	let verifier = AsyncVerifier::new(chain_verifier, db.clone(), memory_pool.clone(), verifier_sink, verification_params);
-	let sync_client = SynchronizationClient::new(sync_state.clone(), sync_client_core, verifier);
-	Arc::new(SyncNode::new(consensus, db, memory_pool, peers, sync_state, sync_executor, sync_client, sync_server))
+	let sync_client = SynchronizationClient::new(sync_state.clone(), sync_client_core, verifier, true);
+
+	let mut shard_blocks_pool = ShardBlocksPool::new(sync_client.clone());
+	let shard_blocks_pool = Arc::new(RwLock::new(shard_blocks_pool));
+	Arc::new(SyncNode::new(consensus, db, memory_pool, peers, sync_state, sync_executor, sync_client, sync_server, shard_blocks_pool))
 }
 
 /// Create inbound synchronization connections factory for given local sync node.

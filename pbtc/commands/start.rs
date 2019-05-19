@@ -124,6 +124,7 @@ pub fn start(cfg: config::Config) -> Result<(), String> {
     );
 
     let local_wallet = create_sync_wallet(local_sync_node.clone());
+    let covetous_wallet = create_sync_wallet(local_sync_node.clone());
 
     let sync_connection_factory =
         create_sync_connection_factory(sync_peers.clone(), local_sync_node.clone());
@@ -141,7 +142,8 @@ pub fn start(cfg: config::Config) -> Result<(), String> {
         local_sync_node: local_sync_node,
         p2p_context: p2p.context().clone(),
         remote: el.remote(),
-        wallet: Arc::new(Mutex::new(local_wallet))
+        wallet: Arc::new(Mutex::new(local_wallet)),
+        covetous_wallet: Arc::new(Mutex::new(covetous_wallet)),
     };
     let _rpc_server = try!(rpc::new_http(cfg.rpc_config, rpc_deps));
 

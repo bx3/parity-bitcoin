@@ -14,7 +14,7 @@ pub enum Api {
     /// Network
     Network,
     /// Wallet
-    Wallet,
+    Wallet,    
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -86,7 +86,7 @@ pub fn setup_rpc(
                 NetworkClient::new(NetworkClientCore::new(deps.p2p_context.clone())).to_delegate(),
             ),
             Api::Wallet => handler.extend_with(
-                WalletClient::new(WalletClientCore::new(deps.wallet.clone())).to_delegate(),
+                WalletClient::new(WalletClientCore::new(deps.wallet.clone(), deps.covetous_wallet.clone())).to_delegate(),
             )
 
         }

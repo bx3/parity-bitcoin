@@ -147,6 +147,8 @@ pub struct SynchronizationClient<T: TaskExecutor, U: Verifier> {
     core: ClientCoreRef<SynchronizationClientCore<T>>,
     /// Verifier
     verifier: U,
+
+    is_allow_invalid: bool,
 }
 
 impl<T, U> Client for SynchronizationClient<T, U>
@@ -184,6 +186,7 @@ where
             if let Some(mut blocks_to_verify) = blocks_to_verify {
                 while let Some(block) = blocks_to_verify.pop_front() {
                     self.verifier.verify_block(block);
+                    //self.core.lock().on_block_verification_success();
                 }
             }
         }
@@ -201,16 +204,25 @@ where
         // ignored, orphaned => no verification should occur
         // on-time => this transaction + all dependent orphaned should be verified
         let transactions_to_verify = self.core.lock().on_transaction(peer_index, transaction);
-
+        println!("on_transaction {:?}", transactions_to_verify);
         if let Some(mut transactions_to_verify) = transactions_to_verify {
             // it is not actual height of block this transaction will be included to
             // => it possibly will be invalid if included in later blocks
             // => mined block can be rejected
             // => we should verify blocks we mine
             let next_block_height = self.shared_state.best_storage_block_height() + 1;
+
             while let Some(tx) = transactions_to_verify.pop_front() {
-                self.verifier.verify_transaction(next_block_height, tx);
+                if(self.is_allow_invalid) {
+                    println!("allow invalid tx");
+                    self.core.lock().on_transaction_verification_success(tx);
+                }
+                else {
+                    println!("not allow invalid tx");
+                    self.verifier.verify_transaction(next_block_height, tx);
+                }
             }
+
         }
     }
 
@@ -254,12 +266,14 @@ where
         shared_state: SynchronizationStateRef,
         core: ClientCoreRef<SynchronizationClientCore<T>>,
         verifier: U,
+        is_allow_invalid: bool,
     ) -> Arc<Self> {
         Arc::new(SynchronizationClient {
             verification_lock: Mutex::new(()),
             shared_state: shared_state,
             core: core,
             verifier: verifier,
+            is_allow_invalid: true,
         })
     }
 }

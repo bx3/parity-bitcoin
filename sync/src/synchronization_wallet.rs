@@ -82,7 +82,6 @@ impl Coin {
     pub fn get_outpoint(&self) -> OutPoint {self.outpoint.clone()}
 }
 
-
 pub struct Wallet {
     local_node: LocalNodeRef,
 	coins: HashSet<Coin>,
@@ -98,7 +97,7 @@ impl Wallet {
             coins: HashSet::new(),
             keypairs: HashMap::new(),
             coins_candidate: HashSet::new(),
-            num_coin: 0
+            num_coin: 0,
         }
 	}
 
@@ -268,14 +267,6 @@ impl Wallet {
 
     pub fn pay(&mut self, recipient: AddressHash, value: u64) -> Result<H256, WalletError> {
         let tx = self.create_transaction(recipient, value)?;
-        //{
-        //    Err(err) => match err {
-        //        InsufficientMoney => {println!("insufficient money Error"); return Err(InsufficientMoney)},
-        //        EmptyKeySpace => {println!("create a pair of private, public key"); return Err(EmptyKeySpace)},
-        //        MissingKeypairForAddressHash => {println!("MissingKeypairForAddressHash"); return Err(MissingKeypairForAddressHash)}
-        //    },
-        //    Ok(tx) => tx,
-        //};
 
         let indexed_transaction = IndexedTransaction::from(tx);
         let peer_index = 1000;
@@ -314,6 +305,52 @@ impl Wallet {
             println!("coin acc {}", coin.id);
         }
         println!("********************");
+    }
+
+    pub fn covet_pay(&self, recipient: AddressHash, value: u64) -> Result<H256, WalletError> {
+        let tx = self.create_covet_transaction(recipient, value)?;
+
+        let indexed_transaction = IndexedTransaction::from(tx);
+        let peer_index = 1000;
+
+        // send to local node mempool
+        self.local_node.on_transaction(peer_index.clone(), indexed_transaction.clone());
+        // send to network
+        self.local_node.unsolicited_transaction(peer_index.clone(), indexed_transaction.clone());
+
+        Ok(indexed_transaction.hash)
+    }
+
+    pub fn create_covet_transaction(&self, recipient: AddressHash, value: u64) -> Result<Transaction, WalletError> {
+        let script = ScriptBuilder::build_p2pkh(&recipient);
+        //tx output currently, single only
+        let mut transaction_outputs = vec![
+            TransactionOutput {
+                value: value,
+                script_pubkey: script.to_bytes(),
+        }];
+
+        //void Coin
+        let void_coin = OutPoint::null();
+
+        let mut unsigned_inputs: Vec<TransactionInput> = vec![];
+
+        println!("use void coin");
+        unsigned_inputs.push(TransactionInput {
+                previous_output: void_coin,
+                script_sig: Bytes::new(),
+                sequence: 0x00,
+                script_witness: vec![],
+            }
+        );
+
+        let transaction = Transaction {
+            version: 1,
+            inputs: unsigned_inputs,
+            outputs: transaction_outputs,
+            lock_time: 0,
+        };
+        Ok(transaction)
     }
 
 }

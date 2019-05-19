@@ -26,6 +26,8 @@ pub trait BlockChain {
 
     /// Checks block origin
     fn block_origin(&self, header: &IndexedBlockHeader) -> Result<BlockOrigin, Error>;
+
+    fn canonize_with_invalid(&self, block_hash: &H256 , tx_flags: &Vec<bool>) -> Result<(), Error>;
 }
 
 pub trait Forkable {

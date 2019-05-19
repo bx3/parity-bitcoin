@@ -21,6 +21,7 @@ extern crate storage;
 extern crate sync;
 extern crate tokio_core;
 extern crate verification;
+extern crate script;
 
 pub mod rpc_server;
 pub mod v1;

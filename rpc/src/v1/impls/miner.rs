@@ -14,8 +14,11 @@ use chain::BlockHeader;
 
 use chain::IndexedBlock;
 use std::{thread, time};
-use global_script::Script;
-use chain::{merkle_root, Transaction};
+//use global_script::Script;
+use chain::{merkle_root, Transaction, TransactionInput, TransactionOutput};
+use script::Builder;
+use chain::OutPoint;
+use primitives::bytes::Bytes;
 
 //use chain::IndexedBlockHeader;
 
@@ -33,7 +36,9 @@ pub trait MinerClientCoreApi: Send + Sync + 'static {
     fn get_block_template(&self) -> miner::BlockTemplate;
     fn insert_block(&self, indexed_block: IndexedBlock);
     fn execute_broadcast_block(&self, indexed_block: IndexedBlock);
-    fn print_blocks(&self);
+    fn log_blocks(&self);
+    fn log_mempool(&self);
+    fn signal_sanitize(&self);
 }
 
 pub struct MinerClientCore {
@@ -61,8 +66,16 @@ impl MinerClientCoreApi for MinerClientCore {
         self.local_sync_node.unsolicited_block(0, indexed_block);
     }
 
-    fn print_blocks(&self) {
-        self.local_sync_node.print_blocks();
+    fn log_blocks(&self) {
+        self.local_sync_node.log_blocks();
+    }
+
+    fn log_mempool(&self) {
+        self.local_sync_node.log_mempool();
+    }
+
+    fn signal_sanitize(&self) {
+        self.local_sync_node.shard_sanitize_block();
     }
 }
 
@@ -79,13 +92,23 @@ impl<T> Miner for MinerClient<T>
 where
     T: MinerClientCoreApi,
 {
-    fn print_blocks(&self) -> Result<(), Error> {
-        let wallet = self.core.print_blocks();
+    fn log_blocks(&self) -> Result<(), Error> {
+        self.core.log_blocks();
+        Ok(())
+    }
+
+    fn log_mempool(&self) -> Result<(), Error> {
+        self.core.log_mempool();
         Ok(())
     }
 
     fn get_block_template(&self, _request: BlockTemplateRequest) -> Result<BlockTemplate, Error> {
         Ok(self.core.get_block_template().into())
+    }
+
+    fn signal_sanitize(&self) -> Result<(), Error> {
+        self.core.signal_sanitize();
+        Ok(())
     }
 
     fn generate_blocks(&self, addrhash: H160, num_blocks: u32) -> Result<H256, Error> {
@@ -98,8 +121,111 @@ where
             let peer_index = 0;
 
             let coinbase_builder = Sh_CoinbaseTransactionBuilder::new(&hash, 10);
+            // take all transaction in mempool
             let block_template = self.core.get_block_template(); //.into()
 
+
+            let solution = match miner::find_solution(&block_template, coinbase_builder, U256::max_value()) {
+                None => {
+                    println!("NoNonceSolution");
+                    let mut err_with_message = Error::invalid_request();
+                    err_with_message.message = "NoNonceSolution".to_string();
+                    return Err(err_with_message)
+                },
+                Some(s) => s,
+            };
+
+            let coinbase_txid = solution.coinbase_transaction.hash().clone();
+            coinbase_txid_ser = coinbase_txid.clone().into();
+            //println!("coinbase_txid {:?}", coinbase_txid);
+            //println!("non coinbase tx len {}", block_template.transactions.len());
+
+            let mut merkle_root_hash = solution.coinbase_transaction.hash().clone();
+            if block_template.transactions.len() >= 1 {
+                let mut merkle_tree = vec![&coinbase_txid];
+                merkle_tree.extend(block_template.transactions.iter().map(|tx| &tx.hash));
+                merkle_root_hash = merkle_root(&merkle_tree);
+            }
+
+            let block_header = BlockHeader {
+                version: block_template.version,
+                previous_header_hash: block_template.previous_header_hash.clone(),
+                merkle_root_hash: merkle_root_hash,
+                time: solution.time.clone(),
+                bits: block_template.bits.clone(),
+                nonce: solution.nonce.clone(),
+            };
+
+            //println!("block_header {:?}", block_header);
+
+            let mut transactions = vec![solution.coinbase_transaction.clone()];
+            if block_template.transactions.len() >= 1 {
+                let mut non_coinbase_txs = block_template.transactions.iter().map(|tx| tx.raw.clone()).collect();
+                transactions.append(&mut non_coinbase_txs);
+            }
+
+            let block = Block::new(block_header.clone(), transactions);
+            let indexed_block = IndexedBlock::from(block);
+
+            // insert to local
+            self.core.insert_block(indexed_block.clone());
+            //broadcast
+            self.core.execute_broadcast_block(indexed_block);
+
+            // necessary, experiment shows block is show to append without it
+            let ten_millis = time::Duration::from_millis(300);
+            thread::sleep(ten_millis);
+
+        }
+
+        Ok(coinbase_txid_ser)
+    }
+
+    fn generate_invalid_blocks(&self, addrhash: H160, num_blocks: u32) -> Result<H256, Error> {
+
+        let mut hash: primitives::hash::H160 = addrhash.clone().into();
+
+        let mut coinbase_txid_ser = H256::default();
+
+
+        for _i in 0..num_blocks {
+            let peer_index = 0;
+
+            let coinbase_builder = Sh_CoinbaseTransactionBuilder::new(&hash, 10);
+            // take all transaction in mempool
+            let mut block_template = self.core.get_block_template(); //.into()
+            //let addr: chain::hash::H160 = addrhash
+            let script = Builder::build_p2pkh(&addrhash.clone().into());
+            //tx output currently, single only
+            let mut transaction_outputs = vec![
+                TransactionOutput {
+                    value: 100000,
+                    script_pubkey: script.to_bytes(),
+            }];
+
+            //void Coin
+            let mut void_coin = OutPoint::null();
+            void_coin.hash = "fff7f7881a8099afa6940d42d1e7f6362bec38171ea3edf433541db4e4ad969f".into();
+            let mut unsigned_inputs: Vec<TransactionInput> = vec![];
+
+            //println!("use void coin");
+            unsigned_inputs.push(TransactionInput {
+                    previous_output: void_coin,
+                    script_sig: Bytes::new(),
+                    sequence: 0x00,
+                    script_witness: vec![],
+                }
+            );
+
+            let transaction = Transaction {
+                version: 1,
+                inputs: unsigned_inputs,
+                outputs: transaction_outputs,
+                lock_time: 0,
+            };
+
+            block_template.transactions.clear();
+            block_template.transactions.push(transaction.into());
 
             let solution = match miner::find_solution(&block_template, coinbase_builder, U256::max_value()) {
                 None => {

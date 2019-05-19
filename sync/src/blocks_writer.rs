@@ -142,6 +142,10 @@ impl BlockVerificationSink for BlocksWriterSink {
     fn on_block_verification_error(&self, err: &str, _hash: &H256) {
         *self.data.err.lock() = Some(Error::Verification(err.into()));
     }
+
+    fn on_block_verification_error_but_proceed(&self, block: chain::IndexedBlock) -> Option<Vec<VerificationTask>> {
+        unimplemented!()
+    }
 }
 
 impl TransactionVerificationSink for BlocksWriterSink {

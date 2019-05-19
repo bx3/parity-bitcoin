@@ -32,5 +32,16 @@ build_rpc_trait! {
         #[rpc(name = "printcoins")]
         fn print_coins(&self) -> Result<(), Error>;
 
+        #[rpc(name = "covetpay")]
+        fn covet_pay(&self, AddressHash_ser, u64) -> Result<H256_ser, Error>;
+
+        #[rpc(name = "covetgeneratekeypair")]
+        fn covet_generate_keypair(&self) -> Result<AddressHash_ser, Error>;
+
+        #[rpc(name = "covetgetaddresshash")]
+        fn covet_get_addresshash(&self) -> Result<AddressHash_ser, Error>;
+
+        #[rpc(name = "covetwalletaddtx")]
+        fn covet_wallet_add_tx(&self, H256_ser, u32) -> Result<(), Error>;
     }
 }

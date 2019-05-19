@@ -283,6 +283,99 @@ where
         Ok(self.best_block().hash)
     }
 
+    pub fn canonize_with_invalid(&self, hash: &H256, tx_flags: &Vec<bool>) -> Result<(), Error> {
+        let mut best_block = self.best_block.write();
+        let block = match self.indexed_block(hash.clone().into()) {
+            Some(block) => block,
+            None => return Err(Error::CannotCanonize),
+        };
+
+
+        if best_block.hash != block.header.raw.previous_header_hash {
+            return Err(Error::CannotCanonize);
+        }
+
+        let new_best_block = BestBlock {
+            hash: hash.clone(),
+            number: if block.header.raw.previous_header_hash.is_zero() {
+                assert_eq!(best_block.number, 0);
+                0
+            } else {
+                best_block.number + 1
+            },
+        };
+
+        trace!(target: "db", "canonize {:?}", new_best_block);
+
+        let mut update = DBTransaction::new();
+        update.insert(KeyValue::BlockHash(
+            new_best_block.number,
+            new_best_block.hash.clone(),
+        ));
+        update.insert(KeyValue::BlockNumber(
+            new_best_block.hash.clone(),
+            new_best_block.number,
+        ));
+        update.insert(KeyValue::Meta(
+            KEY_BEST_BLOCK_HASH,
+            serialize(&new_best_block.hash),
+        ));
+        update.insert(KeyValue::Meta(
+            KEY_BEST_BLOCK_NUMBER,
+            serialize(&new_best_block.number),
+        ));
+
+        let mut modified_meta: HashMap<H256, TransactionMeta> = HashMap::new();
+        if let Some(tx) = block.transactions.first() {
+            let meta = TransactionMeta::new_coinbase(new_best_block.number, tx.raw.outputs.len(), tx_flags[0]);
+            modified_meta.insert(tx.hash.clone(), meta);
+        }
+        let mut i = 0;
+        for tx in block.transactions.iter().skip(1) {
+            i += 1;
+            let tx_flag = tx_flags[i];
+            println!("tx_flag {} {:?}", tx_flag, tx);
+
+            if tx_flag {
+                modified_meta.insert(
+                    tx.hash.clone(),
+                    TransactionMeta::new(new_best_block.number, tx.raw.outputs.len(), true),
+                );
+
+                for input in &tx.raw.inputs {
+                    use std::collections::hash_map::Entry;
+
+                    match modified_meta.entry(input.previous_output.hash.clone()) {
+                        Entry::Occupied(mut entry) => {
+                            let meta = entry.get_mut();
+                            meta.denote_used(input.previous_output.index as usize);
+                        }
+                        Entry::Vacant(entry) => {
+                            let mut meta = self
+                                .transaction_meta(&input.previous_output.hash)
+                                .ok_or(Error::CannotCanonize)?;
+                            meta.denote_used(input.previous_output.index as usize);
+                            entry.insert(meta);
+                        }
+                    }
+                }
+            } else {
+                modified_meta.insert(
+                    tx.hash.clone(),
+                    TransactionMeta::new(new_best_block.number, tx.raw.outputs.len(), false),
+                );
+            }
+        }
+
+        for (hash, meta) in modified_meta.into_iter() {
+            update.insert(KeyValue::TransactionMeta(hash, meta));
+        }
+        println!("hello2");
+        self.db.write(update).map_err(Error::DatabaseError)?;
+        *best_block = new_best_block;
+        Ok(())
+    }
+
     /// Marks block as a new best block.
     /// Block must be already inserted into db, and it's parent must be current best block.
     /// Updates meta data.
@@ -329,14 +422,14 @@ where
 
         let mut modified_meta: HashMap<H256, TransactionMeta> = HashMap::new();
         if let Some(tx) = block.transactions.first() {
-            let meta = TransactionMeta::new_coinbase(new_best_block.number, tx.raw.outputs.len());
+            let meta = TransactionMeta::new_coinbase(new_best_block.number, tx.raw.outputs.len(), true);
             modified_meta.insert(tx.hash.clone(), meta);
         }
 
         for tx in block.transactions.iter().skip(1) {
             modified_meta.insert(
                 tx.hash.clone(),
-                TransactionMeta::new(new_best_block.number, tx.raw.outputs.len()),
+                TransactionMeta::new(new_best_block.number, tx.raw.outputs.len(), true),
             );
 
             for input in &tx.raw.inputs {
@@ -605,6 +698,10 @@ where
 
     fn canonize(&self, block_hash: &H256) -> Result<(), Error> {
         BlockChainDatabase::canonize(self, block_hash)
+    }
+
+    fn canonize_with_invalid(&self, block_hash: &H256 , tx_flags: &Vec<bool>) -> Result<(), Error> {
+        BlockChainDatabase::canonize_with_invalid(self, block_hash, tx_flags)
     }
 
     fn decanonize(&self) -> Result<H256, Error> {

@@ -12,6 +12,7 @@ pub struct TransactionMeta {
     /// first bit indicate if transaction is a coinbase transaction
     /// next bits indicate if transaction has spend outputs
     bits: BitVec,
+    is_valid: bool,
 }
 
 impl Serializable for TransactionMeta {
@@ -30,6 +31,7 @@ impl Deserializable for TransactionMeta {
         let result = TransactionMeta {
             block_height: reader.read()?,
             bits: BitVec::from_bytes(&reader.read::<Bytes>()?),
+            is_valid: reader.read()?,
         };
 
         Ok(result)
@@ -38,16 +40,17 @@ impl Deserializable for TransactionMeta {
 
 impl TransactionMeta {
     /// New transaction description for indexing
-    pub fn new(block_height: u32, outputs: usize) -> Self {
+    pub fn new(block_height: u32, outputs: usize, is_valid: bool) -> Self {
         TransactionMeta {
             block_height: block_height,
             bits: BitVec::from_elem(outputs + 1, false),
+            is_valid: is_valid,
         }
     }
 
     /// New coinbase transaction
-    pub fn new_coinbase(block_height: u32, outputs: usize) -> Self {
-        let mut result = Self::new(block_height, outputs);
+    pub fn new_coinbase(block_height: u32, outputs: usize, is_valid: bool) -> Self {
+        let mut result = Self::new(block_height, outputs, is_valid);
         result.bits.set(0, true);
         result
     }

@@ -108,6 +108,7 @@ pub use verify_transaction::{MemoryPoolTransactionVerifier, TransactionVerifier}
 
 pub use chain_verifier::BackwardsCompatibleChainVerifier;
 pub use deployments::Deployments;
+pub use deployments::BlockDeployments;
 pub use error::{Error, TransactionError};
 pub use sigops::transaction_sigops;
 pub use timestamp::{median_timestamp, median_timestamp_inclusive};

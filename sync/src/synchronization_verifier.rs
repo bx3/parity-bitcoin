@@ -22,6 +22,8 @@ pub trait BlockVerificationSink: Send + Sync + 'static {
     fn on_block_verification_success(&self, block: IndexedBlock) -> Option<Vec<VerificationTask>>;
     /// When block verification has failed.
     fn on_block_verification_error(&self, err: &str, hash: &H256);
+
+    fn on_block_verification_error_but_proceed(&self, block: IndexedBlock) -> Option<Vec<VerificationTask>>;
 }
 
 /// Transaction verification events sink
@@ -193,7 +195,8 @@ impl AsyncVerifier {
                             }
                         }
                         Err(e) => {
-                            sink.on_block_verification_error(&format!("{:?}", e), block.hash())
+                            sink.on_block_verification_error_but_proceed(block);
+                            //sink.on_block_verification_error(&format!("{:?}", e), block.hash())
                         }
                     }
                 }

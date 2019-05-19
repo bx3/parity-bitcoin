@@ -13,6 +13,15 @@ use storage;
 use types::{BlockHeight, MemoryPoolRef, StorageRef};
 use utils::{BestHeadersChain, BestHeadersChainInformation, HashPosition, HashQueueChain};
 
+use verification::{TransactionAcceptor, ChainAcceptor, VerificationLevel};
+use verification::{Deployments, BlockDeployments};
+use storage::{DuplexTransactionOutputProvider, Store};
+
+use verification::median_timestamp_inclusive;
+use verification::CanonBlock;
+use verification::TransactionError;
+
+
 /// Index of 'verifying' queue
 const VERIFYING_QUEUE: usize = 0;
 /// Index of 'requested' queue
@@ -128,6 +137,8 @@ pub struct Chain {
     /// Is SegWit is possible on this chain? SegWit inventory types are used when block/tx-es are
     /// requested and this flag is true.
     is_segwit_possible: bool,
+
+    consensus: ConsensusParams,
 }
 
 impl BlockState {
@@ -175,6 +186,7 @@ impl Chain {
             memory_pool: memory_pool,
             dead_end_blocks: HashSet::new(),
             is_segwit_possible,
+            consensus: consensus.clone(),
         }
     }
 
@@ -382,6 +394,61 @@ impl Chain {
         self.dead_end_blocks.insert(hash.clone());
     }
 
+    fn check_transactions(&mut self, block_copy: IndexedBlock,) -> Vec<bool> {
+        let canon_block = CanonBlock::new(&block_copy);
+        let mut tx_flags: Vec<bool> = vec![];
+        let output_store = DuplexTransactionOutputProvider::new(
+            self.storage.as_transaction_output_provider(),
+            canon_block.raw(),
+        );
+        let headers = self.storage.as_block_header_provider();
+        let height = self.block_number(block_copy.hash()).unwrap();
+
+        let median_time_past = median_timestamp_inclusive(
+            block_copy.header.raw.previous_header_hash.clone(),
+            self.storage.as_block_header_provider(),
+        );
+
+        let deployment = Deployments::new();
+        let deployments = BlockDeployments::new(
+            &deployment,
+            height,
+            headers,
+            &self.consensus,
+        );
+
+        let transactions: Vec<TransactionAcceptor> =  canon_block
+                .transactions()
+                .into_iter()
+                .enumerate()
+                .map(|(tx_index, tx)| {
+                    TransactionAcceptor::new(
+                        self.storage.as_transaction_meta_provider(),
+                        output_store,
+                        &self.consensus,
+                        tx,
+                        VerificationLevel::Full,
+                        block_copy.hash(),
+                        height,
+                        block_copy.header.raw.time,
+                        median_time_past,
+                        tx_index,
+                        &deployments,
+                    )
+                })
+                .collect();
+        for tx in transactions.iter() {
+            match tx.check() {
+                Ok(()) => tx_flags.push(true),
+                Err(err) => {
+                    println!("err {:?}", err);
+                    tx_flags.push(false);
+                },
+            };
+        }
+        tx_flags
+    }
+
     /// Insert new best block to storage
     pub fn insert_best_block(
         &mut self,
@@ -391,6 +458,13 @@ impl Chain {
             Some(self.storage.best_block().hash),
             self.storage.block_hash(self.storage.best_block().number)
         );
+
+        // start
+        let tx_flags = self.check_transactions(block.clone());
+        println!("txs {:#?}", block.transactions);
+        println!("tx_flags {:?}", tx_flags);
+        //end
+
         let block_origin = self.storage.block_origin(&block.header)?;
         trace!(target: "sync", "insert_best_block {:?} origin: {:?}", block.hash().reversed(), block_origin);
         match block_origin {
@@ -401,7 +475,14 @@ impl Chain {
             // case 1: block has been added to the main branch
             storage::BlockOrigin::CanonChain { .. } => {
                 self.storage.insert(block.clone())?;
-                self.storage.canonize(block.hash())?;
+
+                self.storage.canonize_with_invalid(block.hash(), &tx_flags)?;
+                for tx in block.transactions.iter() {
+                    let meta_provider = self.storage.as_transaction_meta_provider();
+                    let transaction_meta = meta_provider.transaction_meta(&tx.hash);
+                    println!("transaction_meta {:#?}", transaction_meta);
+                }
+
 
                 // remember new best block hash
                 self.best_storage_block = self.storage.as_store().best_block();

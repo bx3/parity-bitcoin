@@ -16,7 +16,8 @@ pub struct Dependencies {
     pub storage: storage::SharedStore,
     pub p2p_context: Arc<p2p::Context>,
     pub remote: Remote,
-    pub wallet: Arc<Mutex<Wallet>>
+    pub wallet: Arc<Mutex<Wallet>>,
+    pub covetous_wallet: Arc<Mutex<Wallet>>
 }
 
 #[derive(Debug, PartialEq)]

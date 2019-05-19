@@ -15,7 +15,7 @@ use synchronization_verifier::TransactionVerificationSink;
 use time;
 use types::{
     ClientRef, ExecutorRef, MemoryPoolRef, PeerIndex, PeersRef, RequestId, ServerRef, StorageRef,
-    SyncListenerRef, SynchronizationStateRef,
+    SyncListenerRef, SynchronizationStateRef, ShardBlocksPoolRef,
 };
 use verification::median_timestamp_inclusive;
 
@@ -46,6 +46,8 @@ pub struct LocalNode<T: TaskExecutor, U: Server, V: Client> {
     client: ClientRef<V>,
     /// Synchronization server
     server: ServerRef<U>,
+
+    shard_blocks_pool: ShardBlocksPoolRef,
 }
 
 /// Transaction accept verification sink
@@ -76,6 +78,7 @@ where
         executor: ExecutorRef<T>,
         client: ClientRef<V>,
         server: ServerRef<U>,
+        shard_blocks_pool: ShardBlocksPoolRef,
     ) -> Self {
         LocalNode {
             consensus: consensus,
@@ -86,6 +89,7 @@ where
             executor: executor,
             client: client,
             server: server,
+            shard_blocks_pool: shard_blocks_pool,
         }
     }
 
@@ -135,9 +139,25 @@ where
         spendable_coins
     }
 
+    pub fn shard_sanitize_block(&self) {
+        let mut shard_blocks_pool = &mut *self.shard_blocks_pool.write();
+        shard_blocks_pool.sanitize_blocks(1000000);
+    }
+
+    pub fn log_mempool(&self) {
+        println!("**********mempool********");
+        let memory_pool = &*self.memory_pool.read();
+        let mut mempool_iter = memory_pool.iter(MemoryPoolOrderingStrategy::ByTimestamp);
+        while let Some(entry) = mempool_iter.next() {
+            println!("txid {:?}", entry.transaction.hash());
+            println!("{:#?}", entry.transaction);
+        }
+        println!("**********mempool End********");
+    }
 
 
-    pub fn print_blocks(&self) {
+
+    pub fn log_blocks(&self) {
         println!("**********PRINT blockchain********");
         let block_provider = self.storage.as_block_provider();
 
@@ -166,25 +186,15 @@ where
             for transaction in transactions {
                 let indexed_tx: IndexedTransaction = transaction.clone().into();
                 if ( transaction.is_coinbase()) {
-                    println!("coinbase tx {:#?}\n\n\n", indexed_tx); //no more
+                    println!("coinbase tx {:?}\n", indexed_tx); //no more
 
                 } else {
-                    println!("regular tx  {:#?}\n\n\n", indexed_tx); //no more
+                    println!("regular tx  {:?}\n", indexed_tx); //no more
                 }
             }
 
         }
-
-        println!("**********PRINT blockchain END********");
-        println!("**********memory pool********");
-
-        let memory_pool = &*self.memory_pool.read();
-        let mut mempool_iter = memory_pool.iter(MemoryPoolOrderingStrategy::ByTimestamp);
-        while let Some(entry) = mempool_iter.next() {
-            println!("txid {:?}", entry.transaction.hash());
-            println!("{:?}", entry.transaction);
-        }
-        println!("**********memory pool end********");
+        println!("**********blockchain END********");
     }
 
 
@@ -271,6 +281,8 @@ where
     /// When block is received
     pub fn on_block(&self, peer_index: PeerIndex, block: IndexedBlock) {
         trace!(target: "sync", "Got `block` message from peer#{}. Block hash: {}", peer_index, block.header.hash.to_reversed_str());
+        //let mut shard_blocks_pool = &mut *self.shard_blocks_pool.write();
+        //shard_blocks_pool.store_block(peer_index, block);
         self.client.on_block(peer_index, block);
     }
 

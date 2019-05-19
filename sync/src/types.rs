@@ -11,6 +11,7 @@ use synchronization_peers::Peers;
 use synchronization_server::ServerImpl;
 use synchronization_verifier::AsyncVerifier;
 use utils::SynchronizationState;
+use synchronization_shard_block_pool::ShardBlocksPool;
 
 pub use utils::BlockHeight;
 
@@ -55,6 +56,8 @@ pub type LocalNodeRef = Arc<
         SynchronizationClient<LocalSynchronizationTaskExecutor, AsyncVerifier>,
     >,
 >;
+
+pub type ShardBlocksPoolRef = Arc<RwLock<ShardBlocksPool<SynchronizationClient<LocalSynchronizationTaskExecutor, AsyncVerifier>>>>;
 
 /// Synchronization events listener reference
 pub type SyncListenerRef = Box<SyncListener>;

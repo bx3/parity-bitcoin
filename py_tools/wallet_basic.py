@@ -31,6 +31,10 @@ def mine_block(url, addresshash, num_block):
     payload = {"jsonrpc": "2.0", "method": "generateblocks", "params": [addresshash, num_block], "id":1 }
     return get_result_or_exit(send_json(url, payload))
 
+def mine_invalid_block(url, addresshash, num_block):
+    payload = {"jsonrpc": "2.0", "method": "generateinvalidblocks", "params": [addresshash, num_block], "id":1 }
+    return get_result_or_exit(send_json(url, payload))
+
 def wallet_add_tx(url, txid, out_index):
     payload = {"jsonrpc": "2.0", "method": "walletaddtx", "params": [txid, out_index], "id":1 }
     get_result_or_exit(send_json(url, payload))
@@ -39,8 +43,12 @@ def update_wallet(url):
     payload = {"jsonrpc": "2.0", "method": "updatewallet", "params": [], "id":1 }
     get_result_or_exit(send_json(url, payload))
 
-def print_blocks(url):
-    payload = {"jsonrpc": "2.0", "method": "print_blocks", "params": [], "id":1 }
+def log_blocks(url):
+    payload = {"jsonrpc": "2.0", "method": "logblocks", "params": [], "id":1 }
+    get_result_or_exit(send_json(url, payload))
+
+def log_mempool(url):
+    payload = {"jsonrpc": "2.0", "method": "logmempool", "params": [], "id":1 }
     get_result_or_exit(send_json(url, payload))
 
 def get_balance(url):
@@ -61,6 +69,10 @@ def shard_pay(url, addresshash, amount):
     payload = {"jsonrpc": "2.0", "method": "shardpay", "params": [addresshash, amount], "id":1 }
     return get_result_or_exit(send_json(url, payload))
 
+def signal_sanitize(url):
+    payload = {"jsonrpc": "2.0", "method": "signalsanitize", "params": [], "id":1 }
+    return  get_result_or_exit(send_json(url, payload))
+
 def get_my_ip():
     line = ""
     with open('/etc/hosts') as f:
@@ -73,10 +85,25 @@ def get_my_ip():
 
     return my_ip
 
+def print_all_balance(all_url):
+    for url in all_url:
+        balance = get_balance(url)
+        print('account', url, balance)
+
+###
+# Covetous wallet
+###
+def covet_pay(url, addresshash, amount):
+    payload = {"jsonrpc": "2.0", "method": "covetpay", "params": [addresshash, amount], "id":1 }
+    return get_result_or_exit(send_json(url, payload))
+
+def covet_gen_keypair(url):
+    payload = {"jsonrpc": "2.0", "method": "covetgeneratekeypair", "params": [], "id":1 }
+    return get_result_or_exit(send_json(url, payload))
+
 def get_other_ips(all_ip):
     #all_ips = set(ip_list)
     # single node simulation
-    print('are you kidding')
     my_ip = get_my_ip()
     if my_ip == "127.0.0.1":
         return [my_ip]

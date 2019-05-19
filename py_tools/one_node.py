@@ -54,6 +54,8 @@ print("peers_ip", peers_ip)
 
 #give one node so,emoney
 init_addr_with_fund(local_url)
+init_addr_with_fund(local_url)
+'''
 print_all_balance(all_url)
 print_coins(local_url)
 
@@ -68,4 +70,4 @@ for peer_url in peers_url:
     #sleep(1)
     #coinbase_id = mine_block(local_url, get_addresshash(local_url), 1)
     #print_all_balance(all_url)
-    
+'''    

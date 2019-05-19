@@ -16,7 +16,16 @@ build_rpc_trait! {
         #[rpc(name = "generateblocks")]
         fn generate_blocks(&self, H160, u32) -> Result<H256, Error>;
 
-        #[rpc(name = "print_blocks")]
-        fn print_blocks(&self) -> Result<(), Error>;    
+        #[rpc(name = "generateinvalidblocks")]
+        fn generate_invalid_blocks(&self, H160, u32) -> Result<H256, Error>;
+
+        #[rpc(name = "logblocks")]
+        fn log_blocks(&self) -> Result<(), Error>;
+
+        #[rpc(name = "logmempool")]
+        fn log_mempool(&self) -> Result<(), Error>;
+
+        #[rpc(name = "signalsanitize")]
+        fn signal_sanitize(&self) -> Result<(), Error>;
     }
 }
