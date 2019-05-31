@@ -21,6 +21,48 @@ fn range_constrain(value: i64, min: i64, max: i64) -> i64 {
 }
 
 /// Returns true if hash is lower or equal than target represented by compact bits
+/*
+pub fn is_valid_proof_of_work_hash(bits: Compact, hash: &H256) -> bool {
+    let target = match bits.to_u256() {
+        Ok(target) => target,
+        _err => return false,
+    };
+    println!("Hash",&*hash.reversed() );
+    println!("Hash reversed",&*hash );
+    let value = U256::from(&*hash.reversed() as &[u8]);
+    value <= target
+}
+*/
+
+// RR Change start
+pub fn is_valid_proof_of_shard_work_hash(bits: Compact, hash: &H256) -> bool {
+    let target = match bits.to_u256() {
+        Ok(target) => target,
+        _err => return false,
+    };
+    //println!("Hash",&*hash.reversed() );
+    //println!("Hash reversed",&*hash );
+    //println!("Pretending to mine a shard block");
+    let value = U256::from(&*hash.reversed() as &[u8]);
+    let sortition_factor: U256 = U256::from(2 as u32);
+    value <= target/sortition_factor
+}
+
+pub fn is_valid_proof_of_beacon_work_hash(bits: Compact, hash: &H256) -> bool {
+    let target = match bits.to_u256() {
+        Ok(target) => target,
+        _err => return false,
+    };
+    //println!("Hash",&*hash.reversed() );
+    //println!("Hash reversed",&*hash );
+    //println!("Pretending to mine a beacon block");
+    let value = U256::from(&*hash.reversed() as &[u8]);
+    let sortition_factor: U256 = U256::from(2 as u32);
+    value <= target && value > target/sortition_factor
+}
+// RR Change end
+/*
+// Start_change
 pub fn is_valid_proof_of_work_hash(bits: Compact, hash: &H256) -> bool {
     let target = match bits.to_u256() {
         Ok(target) => target,
@@ -30,7 +72,8 @@ pub fn is_valid_proof_of_work_hash(bits: Compact, hash: &H256) -> bool {
     let value = U256::from(&*hash.reversed() as &[u8]);
     value <= target
 }
-
+// End_change
+*/
 /// Returns true if hash is lower or equal than target and target is lower or equal
 /// than current network maximum
 pub fn is_valid_proof_of_work(max_work_bits: Compact, bits: Compact, hash: &H256) -> bool {
@@ -206,13 +249,13 @@ pub fn block_reward_satoshi(block_height: u32) -> u64 {
 
 #[cfg(test)]
 mod tests {
-    use super::{block_reward_satoshi, is_valid_proof_of_work, is_valid_proof_of_work_hash};
+    use super::{block_reward_satoshi, is_valid_proof_of_work, is_valid_proof_of_shard_work_hash, is_valid_proof_of_beacon_work_hash};
     use network::Network;
     use primitives::compact::Compact;
     use primitives::hash::H256;
 
     fn is_valid_pow(max: Compact, bits: u32, hash: &'static str) -> bool {
-        is_valid_proof_of_work_hash(bits.into(), &H256::from_reversed_str(hash))
+        (is_valid_proof_of_shard_work_hash(bits.into(), &H256::from_reversed_str(hash)) || is_valid_proof_of_beacon_work_hash(bits.into(), &H256::from_reversed_str(hash))) //Change made here
             && is_valid_proof_of_work(max.into(), bits.into(), &H256::from_reversed_str(hash))
     }
 

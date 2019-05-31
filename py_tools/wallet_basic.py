@@ -68,7 +68,7 @@ def get_my_ip():
             line = l
     my_ip = line.split()[0]
     # some hack
-    if my_ip[0] == 'f':
+    if my_ip[0] == 'f' or my_ip[0]==':':
         my_ip = "127.0.0.1"
 
     return my_ip
@@ -76,8 +76,8 @@ def get_my_ip():
 def get_other_ips(all_ip):
     #all_ips = set(ip_list)
     # single node simulation
-    print('are you kidding')
     my_ip = get_my_ip()
+    print('my ip', my_ip)
     if my_ip == "127.0.0.1":
         return [my_ip]
 

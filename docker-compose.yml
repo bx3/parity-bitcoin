@@ -2,7 +2,8 @@ version: "3"
 services:
   node1:
     container_name: node1
-    build: .
+    image: shard_parity_node1
+#    build: .
     ports:
       - "50000:18443"
       - "50001:18444"
@@ -11,7 +12,7 @@ services:
     entrypoint: python docker_start.py
   node2:
     container_name: node2
-    image: shard-parity-bitcoin_node1 
+    image: shard_parity_node1
     ports:
       - "50002:18443"
       - "50003:18444"
@@ -20,7 +21,7 @@ services:
     entrypoint: python docker_start.py
 #  node3:
 #    container_name: node3
-#    image: shard-parity-bitcoin_node1 
+#    image: shard_parity_node1
 #    ports:
 #      - "50004:18443"
 #      - "50005:18444"

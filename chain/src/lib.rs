@@ -30,6 +30,8 @@ pub use block::Block;
 pub use block_header::BlockHeader;
 pub use merkle_root::{merkle_node_hash, merkle_root};
 pub use transaction::{OutPoint, Transaction, TransactionInput, TransactionOutput};
+pub use shard_header::ShardHeader; //RR_edit
+
 
 pub use indexed_block::IndexedBlock;
 pub use indexed_header::IndexedBlockHeader;

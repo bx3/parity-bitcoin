@@ -112,7 +112,7 @@ pub use error::{Error, TransactionError};
 pub use sigops::transaction_sigops;
 pub use timestamp::{median_timestamp, median_timestamp_inclusive};
 pub use work::{
-    block_reward_satoshi, is_valid_proof_of_work, is_valid_proof_of_work_hash, work_required,
+    block_reward_satoshi, is_valid_proof_of_work, is_valid_proof_of_shard_work_hash, is_valid_proof_of_beacon_work_hash, work_required,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq)]

@@ -3,13 +3,22 @@ use hash::H256;
 use hex::FromHex;
 use merkle_root::merkle_root;
 use ser::deserialize;
-use {BlockHeader, Transaction};
+use {BlockHeader, Transaction, ShardHeader};
 
 #[derive(Debug, PartialEq, Clone, Serializable, Deserializable)]
 pub struct Block {
     pub block_header: BlockHeader,
-    pub transactions: Vec<Transaction>,
+    //pub transactions: Vec<Transaction>,
+    pub content: Content,
 }
+
+/*
+impl PartialEq for Block{
+    fn eq(&self, other:&self) -> bool{
+        self.block_header == other.block_header
+    }
+}
+*/
 
 impl From<&'static str> for Block {
     fn from(s: &'static str) -> Self {
@@ -24,13 +33,22 @@ impl RepresentH256 for Block {
 }
 
 impl Block {
+/*
     pub fn new(header: BlockHeader, transactions: Vec<Transaction>) -> Self {
         Block {
             block_header: header,
             transactions: transactions,
         }
     }
+*/
+    pub fn new(header: BlockHeader, content: Content) -> Self {
+        Block {
+            block_header: header,
+            content: content,
+        }
+    }
 
+/*
     /// Returns block's merkle root.
     pub fn merkle_root(&self) -> H256 {
         let hashes = self
@@ -40,7 +58,27 @@ impl Block {
             .collect::<Vec<H256>>();
         merkle_root(&hashes)
     }
+*/
 
+    //RR_edit
+    /// Returns block's merkle root.
+    pub fn merkle_root(&self) -> H256 {
+        match self.content {
+            Content::Transactions(transactions_a) => {let hashes = transactions_a
+                                                                    .iter()
+                                                                    .map(Transaction::hash)
+                                                                    .collect::<Vec<H256>>();
+                                                        merkle_root(&hashes)},
+            Content::ShardHeaders(shard_headers) => {let hashes = shard_headers
+                                                                    .iter()
+                                                                    .map(ShardHeader::hash)
+                                                                    .collect::<Vec<H256>>();
+                                                        merkle_root(&hashes)},
+        }
+    }
+    //RR_edit_end
+
+/*
     /// Returns block's witness merkle root.
     pub fn witness_merkle_root(&self) -> H256 {
         let hashes = match self.transactions.split_first() {
@@ -53,10 +91,50 @@ impl Block {
         };
         merkle_root(&hashes)
     }
+*/
 
+    //RR_edit
+    /// Returns block's witness merkle root.
+    pub fn witness_merkle_root(&self) -> H256 {
+        match self.content{
+            Content::Transactions(transactions_a) => {  let hashes = match transactions_a.split_first() {
+                                                            None => vec![],
+                                                            Some((_, rest)) => {
+                                                                let mut hashes = vec![H256::from(0)];
+                                                                hashes.extend(rest.iter().map(Transaction::witness_hash));
+                                                                hashes
+                                                            }
+                                                        };
+                                                        merkle_root(&hashes)
+                                                    },
+
+            Content::ShardHeader(shard_header) => panic!("Shard headers do not have witness"),
+        }
+
+    }
+    //RR_edit_end
+
+    /*
     pub fn transactions(&self) -> &[Transaction] {
         &self.transactions
     }
+    */
+
+    //RR_edit
+    pub fn transactions(&self) -> &[Transaction] {
+        match self.content{
+            Content::Transactions(transactions_a) => &transactions_a,
+            Content::ShardHeaders(shard_headers) => panic!("This is a beacon block, transactions cannot be called"),
+        }
+    }
+
+    pub fn shard_headers(&self) -> &[ShardHeader] {
+        match self.content{
+            Content::Transactions(transactions_a) => panic!("This is a shard block, shard_headers cannot be called"),
+            Content::ShardHeaders(shard_headers) => &shard_headers,
+        }
+    }
+    //RR_edit_end
 
     pub fn header(&self) -> &BlockHeader {
         &self.block_header
@@ -66,6 +144,15 @@ impl Block {
         self.block_header.hash()
     }
 }
+
+#[derive(Serializable, Deserializable, Debug, Clone, PartialEq)] // To be decided
+pub enum Content {
+    /// Transaction block content for shard blocks
+    Transactions(Vec<Transaction>),
+    /// Beacon block content of shard headers
+    ShardHeaders(Vec<ShardHeader>),
+}
+
 
 #[cfg(test)]
 mod tests {

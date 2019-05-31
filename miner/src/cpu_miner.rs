@@ -8,7 +8,8 @@ use primitives::compact::Compact;
 use primitives::hash::H256;
 use rand::Rng;
 use ser::Stream;
-use verification::is_valid_proof_of_work_hash;
+use verification::is_valid_proof_of_shard_work_hash;
+use verification::is_valid_proof_of_beacon_work_hash;
 
 /// Instead of serializing `BlockHeader` from scratch over and over again,
 /// let's keep it serialized in memory and replace needed bytes
@@ -156,7 +157,7 @@ pub fn find_solution<T>(
 ) -> Option<Solution>
 where
     T: CoinbaseTransactionBuilder,
-{    
+{
 
     let mut extranonce = U256::default();
     let mut extranonce_bytes = [0u8; 32];
@@ -187,14 +188,24 @@ where
             // update §
             header_bytes.set_nonce(nonce as u32);
             let hash = header_bytes.hash();
-            if is_valid_proof_of_work_hash(block.bits, &hash) {
+            if is_valid_proof_of_shard_work_hash(block.bits, &hash) {
                 let solution = Solution {
                     nonce: nonce as u32,
                     extranonce: extranonce,
                     time: block.time,
                     coinbase_transaction: coinbase_transaction_builder.finish(),
                 };
-
+                println!("Created a pretend shard block ####################");
+                return Some(solution);
+            }
+            else if is_valid_proof_of_beacon_work_hash(block.bits, &hash) {
+                let solution = Solution {
+                    nonce: nonce as u32,
+                    extranonce: extranonce,
+                    time: block.time,
+                    coinbase_transaction: coinbase_transaction_builder.finish(),
+                };
+                println!("Created a pretend beacon block ####################");
                 return Some(solution);
             }
         }

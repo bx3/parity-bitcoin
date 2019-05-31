@@ -36,7 +36,7 @@ impl OutPoint {
     }
 
     pub fn rand_hash() -> Self {
-        let rand_ = rand::thread_rng().gen_range(1, 10000000);
+        let rand_ = rand::thread_rng().gen_range(1, 10);
         let rand_hash: H256 = rand_.into();
         OutPoint {
             hash: rand_hash,
@@ -278,6 +278,8 @@ impl Deserializable for Transaction {
         })
     }
 }
+
+
 
 #[cfg(test)]
 mod tests {

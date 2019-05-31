@@ -10,6 +10,7 @@ pub struct BlockHeader {
     pub version: u32,
     pub previous_header_hash: H256,
     pub merkle_root_hash: H256,
+    pub shard_header_merkle_root_hash: H256, //RR_edit
     pub time: u32,
     pub bits: Compact,
     pub nonce: u32,
@@ -30,6 +31,7 @@ impl fmt::Debug for BlockHeader {
                 &self.previous_header_hash.reversed(),
             )
             .field("merkle_root_hash", &self.merkle_root_hash.reversed())
+            .field("shard_header_merkle_root_hash", &self.shard_header_merkle_root_hash.reversed())
             .field("time", &self.time)
             .field("bits", &self.bits)
             .field("nonce", &self.nonce)
@@ -54,6 +56,7 @@ mod tests {
             version: 1,
             previous_header_hash: [2; 32].into(),
             merkle_root_hash: [3; 32].into(),
+            shard_header_merkle_root_hash: [7; 32].into(),
             time: 4,
             bits: 5.into(),
             nonce: 6,
@@ -65,7 +68,8 @@ mod tests {
         let expected = vec![
             1, 0, 0, 0, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
             2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
-            3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 0, 0, 0, 5, 0, 0, 0, 6, 0, 0, 0,
+            3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+            7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 4, 0, 0, 0, 5, 0, 0, 0, 6, 0, 0, 0,
         ]
         .into();
 
@@ -75,9 +79,10 @@ mod tests {
     #[test]
     fn test_block_header_reader() {
         let buffer = vec![
-            1, 0, 0, 0, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
-            2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
-            3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 0, 0, 0, 5, 0, 0, 0, 6, 0, 0, 0,
+        1, 0, 0, 0, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+        2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+        7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 4, 0, 0, 0, 5, 0, 0, 0, 6, 0, 0, 0,
         ];
 
         let mut reader = Reader::new(&buffer);
@@ -86,6 +91,7 @@ mod tests {
             version: 1,
             previous_header_hash: [2; 32].into(),
             merkle_root_hash: [3; 32].into(),
+            shard_header_merkle_root_hash: [7; 32].into(),
             time: 4,
             bits: 5.into(),
             nonce: 6,

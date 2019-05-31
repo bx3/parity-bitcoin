@@ -12,6 +12,7 @@ pub fn open_db(data_dir: &Option<String>, db_cache: usize) -> storage::SharedSto
         Some(ref data_dir) => custom_path(&data_dir, "db"),
         None => app_dir(AppDataType::UserData, &APP_INFO, "db").expect("Failed to get app dir"),
     };
+    println!("db path {:?}", db_path);
     Arc::new(
         db::BlockChainDatabase::open_at_path(db_path, db_cache).expect("Failed to open database"),
     )
